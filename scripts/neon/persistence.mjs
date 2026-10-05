@@ -5,7 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { fileURLToPath } from "node:url";
 
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const ENABLED = process.env.OMNIROUTE_NEON_PERSISTENCE !== "0" && Boolean(DATABASE_URL);
