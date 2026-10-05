@@ -61,7 +61,8 @@
     "!**/*.test.mjs",
     "!**/*.spec.ts",
     "!**/*.spec.tsx",
-    "!**/*.nft.json"
+    "!**/*.nft.json",
+    "scripts/neon/persistence.mjs"
   ],
   "workspaces": [
     "open-sse",
@@ -301,7 +302,10 @@
     "i18n:check-new-keys": "node scripts/i18n/check-new-key-coverage.mjs",
     "i18n:translate-new-keys": "bash scripts/i18n/translate-new-keys.sh",
     "i18n:check-keys": "node scripts/i18n/check-key-completeness.mjs",
-    "i18n:check-keys:cli": "node scripts/i18n/check-key-completeness.mjs --catalog=cli"
+    "i18n:check-keys:cli": "node scripts/i18n/check-key-completeness.mjs --catalog=cli",
+    "neon:ensure": "node scripts/neon/persistence.mjs ensure",
+    "neon:snapshot": "node scripts/neon/persistence.mjs snapshot",
+    "neon:restore": "node scripts/neon/persistence.mjs restore"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
