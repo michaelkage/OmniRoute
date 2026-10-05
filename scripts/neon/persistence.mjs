@@ -34,9 +34,28 @@ function assertTooling() {
   command("sqlite3", ["--version"]);
 }
 
+function postgresEnv() {
+  const url = new URL(DATABASE_URL);
+  return {
+    ...process.env,
+    PGHOST: url.hostname,
+    PGPORT: url.port || "5432",
+    PGUSER: decodeURIComponent(url.username),
+    PGPASSWORD: decodeURIComponent(url.password),
+    PGDATABASE: decodeURIComponent(url.pathname.replace(/^\\//, "")),
+    ...(url.searchParams.get("sslmode") ? { PGSSLMODE: url.searchParams.get("sslmode") } : {}),
+    ...(url.searchParams.get("channel_binding")
+      ? { PGCHANNELBINDING: url.searchParams.get("channel_binding") }
+      : {}),
+  };
+}
+
 function psql(args, input) {
-  return command("psql", [DATABASE_URL, "-v", "ON_ERROR_STOP=1", "-X", ...args],
-    input === undefined ? {} : { input });
+  return command(
+    "psql",
+    ["-v", "ON_ERROR_STOP=1", "-X", ...args],
+    input === undefined ? { env: postgresEnv() } : { input, env: postgresEnv() }
+  );
 }
 
 function ensureTable() {
