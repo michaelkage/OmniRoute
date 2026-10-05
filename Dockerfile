@@ -12,7 +12,7 @@ RUN --mount=type=cache,id=s/00315a36-acc8-4112-9857-2ddb9c6f5bcd-apt-cache,targe
   --mount=type=cache,id=s/00315a36-acc8-4112-9857-2ddb9c6f5bcd-apt-lists,target=/var/lib/apt/lists,sharing=locked \
   apt-get update \
   && apt-get upgrade -y \
-  && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates \
+  && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates sqlite3 postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
 # npm's *bundled* node_modules (brace-expansion, ip-address, tar, undici) are
