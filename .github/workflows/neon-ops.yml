@@ -24,14 +24,14 @@ concurrency:
 
 jobs:
   neon:
-    name: Neon ${ inputs.operation }
+    name: Neon ${{ inputs.operation }}
     runs-on: ubuntu-latest
     if: vars.DEPLOY_ENABLED == 'true'
     steps:
       - name: Validate restore confirmation
         if: inputs.operation == 'restore'
         env:
-          CONFIRM: ${ inputs.confirm_restore }
+          CONFIRM: ${{ inputs.confirm_restore }}
         run: |
           set -euo pipefail
           if [ "$CONFIRM" != "RESTORE" ]; then
@@ -42,15 +42,15 @@ jobs:
       - name: Run Neon operation on backend VPS
         uses: appleboy/ssh-action@v1
         env:
-          DATABASE_URL: ${ secrets.DATABASE_URL }
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OMNIROUTE_NEON_PERSISTENCE: "1"
           OMNIROUTE_NEON_SNAPSHOT_RETENTION: "12"
-          OPERATION: ${ inputs.operation }
-          CONFIRM_RESTORE: ${ inputs.confirm_restore }
+          OPERATION: ${{ inputs.operation }}
+          CONFIRM_RESTORE: ${{ inputs.confirm_restore }}
         with:
-          host: ${ secrets.VPS_HOST }
-          username: ${ secrets.VPS_USER }
-          key: ${ secrets.VPS_SSH_KEY }
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           timeout: 60s
           command_timeout: 15m
