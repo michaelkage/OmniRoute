@@ -44,9 +44,8 @@ export function isNeonPersistenceEnabled(): boolean {
 
 export async function restoreNeonPersistenceIfNeeded(): Promise<boolean> {
   if (!ENABLED) return false;
-  const hadLocalDb = false;
   await run("restore");
-  return !hadLocalDb;
+  return true;
 }
 
 export function startNeonPersistence(): boolean {
