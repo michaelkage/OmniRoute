@@ -20,10 +20,6 @@ jobs:
       - name: Check VPS SSH reachability from runner
         id: reach
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OMNIROUTE_NEON_PERSISTENCE: "1"
-          OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS: "300000"
-          OMNIROUTE_NEON_SNAPSHOT_RETENTION: "12"
           # Pass the host via env (never interpolate a secret straight into the
           # script body) so /dev/tcp gets a shell variable, not inlined text.
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -47,6 +43,11 @@ jobs:
       - name: Deploy via SSH
         if: steps.reach.outputs.reachable == 'true'
         uses: appleboy/ssh-action@v1
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OMNIROUTE_NEON_PERSISTENCE: "1"
+          OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS: "300000"
+          OMNIROUTE_NEON_SNAPSHOT_RETENTION: "12"
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
