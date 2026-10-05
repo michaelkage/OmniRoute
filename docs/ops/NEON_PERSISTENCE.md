@@ -1,3 +1,9 @@
+---
+title: "OmniRoute + Neon Durability"
+version: 3.8.52
+lastUpdated: 2026-10-05
+---
+
 # OmniRoute + Neon durability
 
 ## Deployment model
