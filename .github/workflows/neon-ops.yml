@@ -26,7 +26,6 @@ jobs:
   neon:
     name: Neon ${{ inputs.operation }}
     runs-on: ubuntu-latest
-    if: vars.DEPLOY_ENABLED == 'true'
     steps:
       - name: Validate restore confirmation
         if: inputs.operation == 'restore'
@@ -47,6 +46,7 @@ jobs:
           OMNIROUTE_NEON_SNAPSHOT_RETENTION: "12"
           OPERATION: ${{ inputs.operation }}
           CONFIRM_RESTORE: ${{ inputs.confirm_restore }}
+          OMNIROUTE_APP_DIR: ${{ secrets.OMNIROUTE_APP_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -54,7 +54,7 @@ jobs:
           port: 22
           timeout: 60s
           command_timeout: 15m
-          envs: DATABASE_URL,OMNIROUTE_NEON_PERSISTENCE,OMNIROUTE_NEON_SNAPSHOT_RETENTION,OPERATION,CONFIRM_RESTORE
+          envs: DATABASE_URL,OMNIROUTE_NEON_PERSISTENCE,OMNIROUTE_NEON_SNAPSHOT_RETENTION,OPERATION,CONFIRM_RESTORE,OMNIROUTE_APP_DIR
           script: |
             set -euo pipefail
 
@@ -63,11 +63,12 @@ jobs:
               exit 1
             fi
 
-            PACKAGE_ROOT="$(npm root -g)/omniroute"
-            SCRIPT="$PACKAGE_ROOT/scripts/neon/persistence.mjs"
+            APP_DIR="${OMNIROUTE_APP_DIR:-/opt/omniroute}"
+            SCRIPT="$APP_DIR/scripts/neon/persistence.mjs"
 
             if [ ! -f "$SCRIPT" ]; then
-              echo "::error::Neon persistence helper was not found in the installed OmniRoute package: $SCRIPT"
+              echo "::error::Neon persistence helper was not found at $SCRIPT"
+              echo "Set OMNIROUTE_APP_DIR if the deployed application lives elsewhere."
               exit 1
             fi
 
