@@ -345,7 +345,8 @@
     "gen:icon-map": "node scripts/dev/gen-icon-map.mjs",
     "docs:readme-hero": "node scripts/docs/gen-readme-hero.mjs",
     "docs:readme-diagrams": "node --import tsx/esm scripts/docs/gen-readme-diagrams.mjs",
-    "typecheck:contracts": "tsc --project packages/contracts/tsconfig.json"
+    "typecheck:contracts": "tsc --project packages/contracts/tsconfig.json",
+    "check:architecture-boundaries": "node scripts/check/check-architecture-boundaries.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
