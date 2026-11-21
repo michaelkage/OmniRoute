@@ -23,13 +23,8 @@ async function getRuntimePaths(): Promise<RuntimePaths> {
   return { dataDir: DATA_DIR, sqliteFile: SQLITE_FILE };
 }
 
-declare global {
-  // Set by bin/omniroute.mjs so child helpers resolve from the package root.
-  var __omniroutePackageRoot: string | undefined;
-}
-
 function helperPath(): string {
-  const root = globalThis.__omniroutePackageRoot || process.cwd();
+  const root = process.env.OMNIROUTE_PACKAGE_ROOT || process.cwd();
   return path.resolve(root, "scripts", "neon", "persistence.mjs");
 }
 
