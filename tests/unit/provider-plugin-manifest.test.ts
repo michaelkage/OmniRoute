@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Ajv from "ajv";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   generateProviderPluginManifestFromRegistry,
@@ -398,4 +401,41 @@ test("free-tier capability keeps capabilities sorted", () => {
   );
   assert.ok(entry);
   assert.deepEqual(entry.capabilities, [...entry.capabilities].sort());
+});
+
+
+test("generated provider manifest conforms to the versioned shared JSON Schema", () => {
+  const schema = JSON.parse(
+    readFileSync(
+      resolve(process.cwd(), "packages/contracts/schemas/provider-plugin-manifest.v1.schema.json"),
+      "utf8",
+    ),
+  );
+  const ajv = new Ajv({ allErrors: true, strict: true });
+  const validate = ajv.compile(schema);
+  const manifest = generateProviderPluginManifestFromRegistry(registryFixture);
+
+  assert.equal(
+    validate(manifest),
+    true,
+    ajv.errorsText(validate.errors, { separator: "\\n" }),
+  );
+});
+
+test("provider manifest schema rejects unknown top-level fields", () => {
+  const schema = JSON.parse(
+    readFileSync(
+      resolve(process.cwd(), "packages/contracts/schemas/provider-plugin-manifest.v1.schema.json"),
+      "utf8",
+    ),
+  );
+  const ajv = new Ajv({ allErrors: true, strict: true });
+  const validate = ajv.compile(schema);
+  const manifest = {
+    ...generateProviderPluginManifestFromRegistry(registryFixture),
+    runtimeSecrets: { token: "must-never-be-accepted" },
+  };
+
+  assert.equal(validate(manifest), false);
+  assert.ok(validate.errors?.some((error) => error.keyword === "additionalProperties"));
 });
