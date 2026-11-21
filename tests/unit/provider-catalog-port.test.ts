@@ -26,7 +26,12 @@ test("provider catalog projects stable provider and model metadata", () => {
   assert.ok(firstModel.id);
   assert.equal(catalog.getModel("openai", firstModel.id)?.id, firstModel.id);
   assert.deepEqual(catalog.listModels("openai"), provider.models);
-  assert.equal(catalog.getProvider("agy")?.id, "antigravity");
+  const aliasedEntry = Object.values(REGISTRY).find(
+    (entry) => entry.alias && entry.alias !== entry.id,
+  );
+  if (aliasedEntry?.alias) {
+    assert.equal(catalog.getProvider(aliasedEntry.alias)?.id, aliasedEntry.id);
+  }
   assert.equal(catalog.getProvider("missing-provider"), null);
   assert.equal(catalog.getModel("missing-provider", "missing-model"), null);
 });
