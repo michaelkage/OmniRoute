@@ -12,7 +12,7 @@ async function sourceFiles(directory) {
   const nested = await Promise.all(entries.map(async (entry) => {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(path);
-    return /\\.tsx?$/.test(entry.name) ? [path] : [];
+    return /\.tsx?$/.test(entry.name) ? [path] : [];
   }));
   return nested.flat();
 }
@@ -39,19 +39,19 @@ assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
 ), "provider manifest generator must consume the shared contract package");
 
-const forbidden = /^(?:@\\/|next(?:\\/|$)|react(?:\\/|$)|better-sqlite3(?:\\/|$)|\\.\\.\\/(?:src|open-sse|app|electron)(?:\\/|$))/;
+const forbidden = /^(?:@\/|next(?:\/|$)|react(?:\/|$)|better-sqlite3(?:\/|$)|\.\.\/(?:src|open-sse|app|electron)(?:\/|$))/;
 const files = await sourceFiles(join(root, "packages/contracts/src"));
 const violations = [];
 
 for (const path of files) {
   const content = await readFile(path, "utf8");
-  const importPattern = /(?:from\\s*|import\\s*\\()\\s*["']([^"']+)["']/g;
+  const importPattern = /(?:from\s*|import\s*\()\s*["']([^"']+)["']/g;
   for (const match of content.matchAll(importPattern)) {
     if (forbidden.test(match[1])) {
-      violations.push(`${relative(root, path)} imports forbidden dependency ${match[1]}`);
+      violations.push(relative(root, path) + " imports forbidden dependency " + match[1]);
     }
   }
 }
 
 assert.deepEqual(violations, [], "contracts must remain a dependency leaf");
-console.log(`Architecture boundary check passed (${files.length} contract source files).`);
+console.log("Architecture boundary check passed (" + files.length + " contract source files).");
