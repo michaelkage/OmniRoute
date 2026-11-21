@@ -70,6 +70,9 @@ Milestones 1 and 2 have an initial implementation slice on
   `npm run typecheck:contracts`.
 - Moved the provider-plugin manifest's shared TypeScript interfaces into the contracts
   package while keeping the generator and provider registry in `open-sse`.
+- Extracted the canonical public/internal routing-strategy vocabulary into
+  `@omniroute/contracts/routing-strategy`; the streaming strategy registry now imports
+  that contract directly, and the root constants module remains a compatibility facade.
 - Added the versioned JSON Schema
   `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
 - Added AJV 2020-12 tests that validate generated manifests and reject unknown
@@ -99,9 +102,11 @@ capabilities injected from their callers.
 
 This is an initial enforcement slice, not full graph closure. The audit has not been
 executed against a local checkout or CI in this environment, so no edge counts or
-passing result are claimed. Remaining Milestone 1 work is to extract runtime ports,
-invert the `open-sse` back-dependencies, move domain persistence behind repository
-adapters, and thin the route handlers without changing wire behavior.
+passing result are claimed. The first narrow dependency inversion is now landed: strategy vocabulary no longer flows
+from the streaming engine into a root application alias. Remaining Milestone 1 work is to
+introduce provider lookup, credential, model metadata, quota and dispatch ports; invert
+the remaining `open-sse` back-dependencies; move domain persistence behind repository
+adapters; and thin route handlers without changing wire behavior.
 
 ## Implementation order
 
