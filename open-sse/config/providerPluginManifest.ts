@@ -3,64 +3,19 @@ import { USAGE_FETCHER_PROVIDERS } from "../services/usage/fetcherProviders.ts";
 import { USAGE_SUPPORTED_PROVIDERS } from "../services/usage/supportedProviders.ts";
 import { hasFreeTierProvider } from "./freeTierProviders.ts";
 
-export type ProviderPluginCapability =
-  | "apikey"
-  | "custom-executor"
-  | "free-tier"
-  | "oauth"
-  | "passthrough-models"
-  | "responses"
-  | "sidecar-candidate"
-  | "usage-fetch"
-  | "usage-supported";
+import type {
+  ProviderPluginCapability,
+  ProviderPluginManifest,
+  ProviderPluginManifestEntry,
+  ProviderPluginModel,
+} from "@omniroute/contracts/provider-plugin-manifest";
 
-export interface ProviderPluginModel {
-  id: string;
-  name: string;
-  contextLength?: number;
-  maxOutputTokens?: number;
-  toolCalling?: boolean;
-  supportsReasoning?: boolean;
-  supportsVision?: boolean;
-  supportsVideo?: boolean;
-  unsupportedParams?: readonly string[];
-  targetFormat?: string;
-}
-
-export interface ProviderPluginManifestEntry {
-  id: string;
-  alias?: string;
-  format: string;
-  executor: string;
-  auth: {
-    type: string;
-    header: string;
-    prefix?: string;
-  };
-  endpoints: {
-    baseUrl?: string;
-    baseUrls?: string[];
-    responsesBaseUrl?: string;
-    chatPath?: string;
-    modelsUrl?: string;
-  };
-  capabilities: ProviderPluginCapability[];
-  passthroughModels: boolean;
-  defaultContextLength?: number;
-  timeoutMs?: number;
-  models: ProviderPluginModel[];
-  sidecar: {
-    eligible: boolean;
-    reasons: string[];
-  };
-}
-
-export interface ProviderPluginManifest {
-  schemaVersion: 1;
-  generatedFrom: "open-sse/config/providers";
-  providers: ProviderPluginManifestEntry[];
-}
-
+export type {
+  ProviderPluginCapability,
+  ProviderPluginManifest,
+  ProviderPluginManifestEntry,
+  ProviderPluginModel,
+} from "@omniroute/contracts/provider-plugin-manifest";
 const SIDECAR_COMPATIBLE_EXECUTORS = new Set(["default"]);
 
 /**
