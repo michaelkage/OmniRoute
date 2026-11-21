@@ -83,6 +83,26 @@ place, and the runtime boundary between the application shell and streaming engi
 not yet been extracted. The new typecheck, boundary check, and manifest tests have not
 been executed in this environment; CI evidence is still required.
 
+## Milestone 1 dependency graph — 2026-11-21
+
+A source-backed dependency map is now documented in
+`docs/architecture/RUNTIME_DEPENDENCY_GRAPH.md`. The new
+`npm run audit:architecture` command scans the principal source layers and reports
+cross-layer imports; `npm run check:architecture-boundaries` combines this with the
+contracts leaf check and fails on forbidden UI/browser/contracts layer edges.
+
+Observed coupling includes Next.js routes importing deep streaming-engine helpers and
+application services, `open-sse` importing root `src/shared` and `src/lib` modules,
+and domain fallback policy importing SQLite persistence functions directly. The UI kit
+and browser-pool are the cleanest package boundaries and should remain leaves with
+capabilities injected from their callers.
+
+This is an initial enforcement slice, not full graph closure. The audit has not been
+executed against a local checkout or CI in this environment, so no edge counts or
+passing result are claimed. Remaining Milestone 1 work is to extract runtime ports,
+invert the `open-sse` back-dependencies, move domain persistence behind repository
+adapters, and thin the route handlers without changing wire behavior.
+
 ## Implementation order
 
 The dependencies are not independent. The recommended sequence is:
