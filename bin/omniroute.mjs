@@ -47,6 +47,9 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = join(__dirname, "..");
+// Child processes must resolve helpers relative to the installed package,
+// not the operator current working directory.
+process.env.OMNIROUTE_PACKAGE_ROOT ??= ROOT;
 
 // Fast-path a bare `--version`/`-V` query BEFORE the tsx/esm registration, the
 // polyfill import, env-file loading, or Commander's command registration (~70
