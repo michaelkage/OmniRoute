@@ -155,6 +155,13 @@ async function cleanup(): Promise<void> {
     if (closeAuditDb()) {
       console.log("[Shutdown] MCP audit database checkpointed and closed.");
     }
+    // Flush the final Neon snapshot while the SQLite database is still open.
+    try {
+      const { stopNeonPersistence } = await import("@/lib/neonPersistence");
+      await stopNeonPersistence();
+    } catch (error) {
+      console.warn("[Shutdown] Final Neon snapshot failed:", (error as Error).message);
+    }
     try {
       if (await shutdownDbInstance()) {
         console.log("[Shutdown] SQLite database checkpointed and closed.");
