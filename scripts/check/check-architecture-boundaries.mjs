@@ -24,6 +24,18 @@ const contractsPackage = JSON.parse(
 const openSsePackage = JSON.parse(await readFile(join(root, "open-sse/package.json"), "utf8"));
 const contractsSource = join(root, "packages/contracts/src");
 const tsconfig = JSON.parse(await readFile(join(root, "tsconfig.json"), "utf8"));
+const providerCatalogContract = await readFile(
+  join(contractsSource, "provider-catalog.ts"),
+  "utf8",
+);
+const providerCatalogAdapter = await readFile(
+  join(root, "open-sse/adapters/providerCatalogAdapter.ts"),
+  "utf8",
+);
+const providerCatalogService = await readFile(
+  join(root, "open-sse/services/providerCatalog.ts"),
+  "utf8",
+);
 const manifestGenerator = await readFile(
   join(root, "open-sse/config/providerPluginManifest.ts"),
   "utf8",
@@ -38,6 +50,17 @@ assert.equal(openSsePackage.dependencies?.["@omniroute/contracts"], contractsPac
 assert.deepEqual(tsconfig.compilerOptions.paths["@omniroute/contracts"],
   ["./packages/contracts/src/index.ts"],
   "root TypeScript config must resolve the contracts package entrypoint");
+assert.equal(contractsPackage.exports["./provider-catalog"], "./src/provider-catalog.ts",
+  "provider catalog contract must have an explicit package export");
+assert.ok(providerCatalogContract.includes("export interface ProviderCatalogPort"),
+  "provider catalog contract must define the runtime port");
+assert.ok(providerCatalogAdapter.includes("@omniroute/contracts/provider-catalog"),
+  "provider catalog adapter must depend on the shared contract");
+assert.equal(providerCatalogAdapter.includes("@/"), false,
+  "provider catalog adapter must not import root application aliases");
+assert.ok(providerCatalogService.includes("configureProviderCatalog"),
+  "provider catalog must expose composition-time adapter injection");
+
 assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
 ), "provider manifest generator must consume the shared contract package");
