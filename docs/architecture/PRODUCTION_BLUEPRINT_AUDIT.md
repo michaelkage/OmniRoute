@@ -60,6 +60,29 @@ merge these feature changes into the v3 validation or future v3 LTS line.
 | 15 | Modular Extension Marketplace | Partial | Build a trusted registry, signed artifacts, mandatory integrity verification, compatibility resolution, rollback and sandboxed installation |
 | 16 | Runtime Profiles and Modular Distribution | Partial | Formalize minimal/server/CLI/desktop profiles and publish versioned core, SDK and module artifacts with compatibility guarantees |
 
+## V4 staging progress — 2026-11-21
+
+Milestones 1 and 2 have an initial implementation slice on
+`feature/v4-production-blueprint-neon-latest`:
+
+- Added the private `@omniroute/contracts` workspace as a dependency-free package.
+- Enabled strict TypeScript checking for that package with
+  `npm run typecheck:contracts`.
+- Moved the provider-plugin manifest's shared TypeScript interfaces into the contracts
+  package while keeping the generator and provider registry in `open-sse`.
+- Added the versioned JSON Schema
+  `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
+- Added AJV 2020-12 tests that validate generated manifests and reject unknown
+  top-level fields.
+- Added `npm run check:architecture-boundaries` to guard the contracts package as a
+  dependency leaf and verify workspace/alias wiring.
+
+These are foundation slices, not completion of either milestone. The root application
+still has a non-strict TypeScript configuration, most cross-layer imports remain in
+place, and the runtime boundary between the application shell and streaming engine has
+not yet been extracted. The new typecheck, boundary check, and manifest tests have not
+been executed in this environment; CI evidence is still required.
+
 ## Implementation order
 
 The dependencies are not independent. The recommended sequence is:
