@@ -346,7 +346,8 @@
     "docs:readme-hero": "node scripts/docs/gen-readme-hero.mjs",
     "docs:readme-diagrams": "node --import tsx/esm scripts/docs/gen-readme-diagrams.mjs",
     "typecheck:contracts": "tsc --project packages/contracts/tsconfig.json",
-    "check:architecture-boundaries": "node scripts/check/check-architecture-boundaries.mjs"
+    "check:architecture-boundaries": "node scripts/check/check-architecture-boundaries.mjs && node scripts/check/audit-architecture-graph.mjs",
+    "audit:architecture": "node scripts/check/audit-architecture-graph.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
