@@ -56,7 +56,7 @@ test("provider catalog supports composition-time adapter injection and restorati
       executor: "default",
       authType: "apikey",
       models: [{ id: "fixture-model", name: "Fixture Model" }],
-    } as (typeof REGISTRY)[string],
+    } as unknown as (typeof REGISTRY)[string],
   });
 
   const restore = configureProviderCatalog(injected);
