@@ -6,3 +6,8 @@ export type {
   ProviderPluginManifestEntry,
   ProviderPluginModel,
 } from "./provider-plugin-manifest.ts";
+export type {
+  ProviderCatalogPort,
+  ProviderMetadata,
+  ProviderModelMetadata,
+} from "./provider-catalog.ts";
