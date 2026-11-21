@@ -73,6 +73,11 @@ Milestones 1 and 2 have an initial implementation slice on
 - Extracted the canonical public/internal routing-strategy vocabulary into
   `@omniroute/contracts/routing-strategy`; the streaming strategy registry now imports
   that contract directly, and the root constants module remains a compatibility facade.
+- Added the runtime-neutral `ProviderCatalogPort` for provider and model metadata,
+  plus a registry adapter and composition-time injection hook. Its projection excludes
+  credentials, OAuth secrets, headers, URL builders and session-pool internals.
+- Added focused unit coverage for provider lookup, model lookup, sensitive-field
+  exclusion and adapter replacement/restoration. Tests have been authored but not run.
 - Added the versioned JSON Schema
   `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
 - Added AJV 2020-12 tests that validate generated manifests and reject unknown
@@ -103,7 +108,9 @@ capabilities injected from their callers.
 This is an initial enforcement slice, not full graph closure. The audit has not been
 executed against a local checkout or CI in this environment, so no edge counts or
 passing result are claimed. The first narrow dependency inversion is now landed: strategy vocabulary no longer flows
-from the streaming engine into a root application alias. Remaining Milestone 1 work is to
+from the streaming engine into a root application alias. Provider lookup and model
+metadata now have a stable contract and an injectable registry adapter; request-path
+consumers still need to migrate onto that port. Remaining Milestone 1 work is to
 introduce provider lookup, credential, model metadata, quota and dispatch ports; invert
 the remaining `open-sse` back-dependencies; move domain persistence behind repository
 adapters; and thin route handlers without changing wire behavior.
