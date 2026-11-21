@@ -7,7 +7,7 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { pathToFileURL } from "node:url";
 
 const TABLE = "omniroute_sqlite_snapshots";
-const MAX_BUFFER = Math.max(16 * 1024 * 1024, Number(process.env.OMNIROUTE_NEON_MAX_BUFFER_BYTES || 1024 * 1024 * 1024));
+const MAX_BUFFER = 1024 * 1024 * 1024;
 
 export function parseRetention(value) {
   const parsed = Number(value);
@@ -62,8 +62,8 @@ function resolveDefaultDataDir() {
   return platformDir;
 }
 
-const DATA_DIR = path.resolve(process.env.OMNIROUTE_NEON_DATA_DIR?.trim() || process.env.DATA_DIR?.trim() || resolveDefaultDataDir());
-const SQLITE_FILE = path.resolve(process.env.OMNIROUTE_NEON_SQLITE_FILE?.trim() || path.join(DATA_DIR, "storage.sqlite"));
+const DATA_DIR = path.resolve(process.env.DATA_DIR?.trim() || resolveDefaultDataDir());
+const SQLITE_FILE = path.join(DATA_DIR, "storage.sqlite");
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const RETENTION = parseRetention(process.env.OMNIROUTE_NEON_SNAPSHOT_RETENTION);
 
@@ -123,6 +123,7 @@ function createSqliteBackup() {
   const temp = path.join(DATA_DIR, ".neon-snapshot-" + process.pid + "-" + Date.now() + ".sqlite");
   try {
     command("sqlite3", [SQLITE_FILE, ".backup '" + temp.replaceAll("'", "''") + "'"]);
+    fs.chmodSync(temp, 0o600);
     return temp;
   } catch (error) {
     fs.rmSync(temp, { force: true });
@@ -149,7 +150,7 @@ function snapshot() {
 }
 
 function fsyncFile(filePath) {
-  const fd = fs.openSync(filePath, "r");
+  const fd = fs.openSync(filePath, "r+");
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
 
