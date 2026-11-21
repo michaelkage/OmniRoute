@@ -39,7 +39,7 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-apt-cache,targe
   && if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi \
   && apt-get update \
   && apt-get upgrade -y \
-  && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates \
+  && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates sqlite3 postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
 # npm's *bundled* node_modules (brace-expansion, ip-address, tar, undici) are
@@ -307,6 +307,9 @@ ENV OMNIROUTE_MIGRATIONS_DIR=/app/migrations
 # Docker healthcheck script — not traced by Next.js standalone output, so copy
 # it explicitly. The HEALTHCHECK CMD references it as `node healthcheck.mjs`.
 COPY --chown=node:node --from=builder /app/scripts/dev/healthcheck.mjs ./healthcheck.mjs
+# Neon durability helper is invoked as a child process by instrumentation and
+# is also used by the operator CLI. Keep it in the standalone runtime image.
+COPY --chown=node:node --from=builder /app/scripts/neon ./scripts/neon
 
 # Next.js standalone tracing omits the root LICENSE, so the published image shipped
 # without the license text. Copy it explicitly.
