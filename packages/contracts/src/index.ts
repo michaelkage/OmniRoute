@@ -1,4 +1,5 @@
 export type { ApiErrorContract } from "./api.ts";
+export * from "./routing-strategy.ts";
 export type {
   ProviderPluginCapability,
   ProviderPluginManifest,
