@@ -61,7 +61,25 @@ The root application calls into the streaming engine, while streaming/provider c
 reaches back into root application modules. The streaming package is a workspace
 boundary, not yet an independently buildable engine boundary.
 
-### Domain policy to persistence
+### Provider lookup and model metadata ports
+
+The contracts package now defines a runtime-neutral `ProviderCatalogPort` with
+provider lookup/list and model lookup/list operations. Its projections include only
+stable routing metadata and model capabilities; credentials, OAuth material, request
+headers, URL builder functions and session-pool internals are intentionally excluded.
+
+`open-sse/adapters/providerCatalogAdapter.ts` adapts the existing provider registry to
+that port. `open-sse/services/providerCatalog.ts` provides the built-in adapter by
+default and exposes a composition-time configuration hook for an application-owned
+adapter. The adapter uses local structural types rather than importing the registry's
+implementation types, so this boundary does not create a new back-edge into application
+code.
+
+This is the first provider/model runtime-port slice. Existing provider consumers have not
+all been migrated to the port yet; the legacy registry remains authoritative during the
+transition. Credential, quota and dispatch ports are still outstanding.
+
+## Domain policy to persistence
 
 The domain directory contains useful policy modules and repository interfaces, but
 some policies still own their storage lifecycle. For example,
