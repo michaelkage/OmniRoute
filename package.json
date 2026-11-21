@@ -51,7 +51,6 @@
     "config/release/wreq-js-rust-notices.md",
     "scripts/build/build-next-isolated.mjs",
     "scripts/i18n/generate-global-error-messages.mjs",
-    "scripts/build/runtime-env.mjs",
     "scripts/packs/optionalPackManifest.mjs",
     "scripts/packs/optionalPackInstaller.mjs",
     "README.md",
@@ -65,12 +64,14 @@
     "!**/*.test.mjs",
     "!**/*.spec.ts",
     "!**/*.spec.tsx",
-    "!**/*.nft.json"
+    "!**/*.nft.json",
+    "packages/contracts/"
   ],
   "workspaces": [
     "open-sse",
     "packages/browser-pool",
-    "packages/ui-kit"
+    "packages/ui-kit",
+    "packages/contracts"
   ],
   "engines": {
     "node": ">=22.22.2 <23 || >=24.0.0 <27"
