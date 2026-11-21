@@ -11,3 +11,11 @@ export type {
   ProviderMetadata,
   ProviderModelMetadata,
 } from "./provider-catalog.ts";
+export type {
+  CredentialHeaderWriter,
+  CredentialKind,
+  CredentialLease,
+  CredentialPurpose,
+  CredentialReference,
+  CredentialResolutionPort,
+} from "./credential-resolution.ts";
