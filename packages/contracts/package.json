@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./provider-plugin-manifest": "./src/provider-plugin-manifest.ts"
+    "./provider-plugin-manifest": "./src/provider-plugin-manifest.ts",
+    "./routing-strategy": "./src/routing-strategy.ts"
   }
 }
