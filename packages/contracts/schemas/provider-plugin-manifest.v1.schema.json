@@ -49,6 +49,7 @@
           "type": "array",
           "uniqueItems": true,
           "items": {
+            "type": "string",
             "enum": ["apikey", "custom-executor", "free-tier", "oauth", "passthrough-models", "responses", "sidecar-candidate", "usage-fetch", "usage-supported"]
           }
         },
