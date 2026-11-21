@@ -1,5 +1,5 @@
 ---
-title: "Runtime Dependency Graph and Boundary Rules"
+title: "Runtime dependency graph and boundary rules"
 version: 4.0.0-planning
 lastUpdated: 2026-11-21
 ---
@@ -75,9 +75,27 @@ adapter. The adapter uses local structural types rather than importing the regis
 implementation types, so this boundary does not create a new back-edge into application
 code.
 
-This is the first provider/model runtime-port slice. Existing provider consumers have not
-all been migrated to the port yet; the legacy registry remains authoritative during the
-transition. Credential, quota and dispatch ports are still outstanding.
+Existing provider consumers have not all been migrated to the port; the legacy registry
+remains authoritative during the transition.
+
+### Credential resolution and secret isolation
+
+The contracts package now defines `CredentialResolutionPort` using a request reference
+(provider, connection/account identifiers, credential kind and purpose) and a
+closure-backed `CredentialLease`. The lease can apply authorization to a
+request-local header writer, but the contract has no API-key, access-token, refresh-token
+or client-secret fields. This prevents secrets from becoming provider metadata or
+ordinary serializable contract values.
+
+`open-sse/services/credentialResolution.ts` is the fail-closed composition seam. It
+requires the application to install a storage-backed resolver and deliberately does not
+fall back to environment variables, provider registry fields or fabricated credentials.
+
+This is contract and injection infrastructure only. The existing executor credential
+shape, SQLite connection loading, API-key rotation and provider-specific OAuth refresh
+remain the active runtime path until a storage-backed adapter can preserve their
+encryption, rotation, refresh serialization, compare-and-swap persistence and
+request-local lifecycle guarantees. No request-path consumer is migrated yet.
 
 ## Domain policy to persistence
 
