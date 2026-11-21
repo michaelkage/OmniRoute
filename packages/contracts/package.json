@@ -10,6 +10,7 @@
     "./api": "./src/api.ts",
     "./provider-plugin-manifest": "./src/provider-plugin-manifest.ts",
     "./routing-strategy": "./src/routing-strategy.ts",
-    "./provider-catalog": "./src/provider-catalog.ts"
+    "./provider-catalog": "./src/provider-catalog.ts",
+    "./credential-resolution": "./src/credential-resolution.ts"
   }
 }
