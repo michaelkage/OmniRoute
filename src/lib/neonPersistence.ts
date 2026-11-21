@@ -3,10 +3,10 @@ import path from "node:path";
 
 const REQUESTED = process.env.OMNIROUTE_NEON_PERSISTENCE === "1";
 const ENABLED = REQUESTED && Boolean(process.env.DATABASE_URL?.trim());
-const INTERVAL_MS = Math.max(
-  60_000,
-  Number(process.env.OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS || 300_000)
-);
+const parsedInterval = Number(process.env.OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS || 300_000);
+const INTERVAL_MS = Number.isFinite(parsedInterval) && parsedInterval > 0
+  ? Math.max(60_000, Math.floor(parsedInterval))
+  : 300_000;
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
 
 let timer: NodeJS.Timeout | undefined;
@@ -23,8 +23,13 @@ async function getRuntimePaths(): Promise<RuntimePaths> {
   return { dataDir: DATA_DIR, sqliteFile: SQLITE_FILE };
 }
 
+declare global {
+  // Set by bin/omniroute.mjs so child helpers resolve from the package root.
+  var __omniroutePackageRoot: string | undefined;
+}
+
 function helperPath(): string {
-  const root = process.env.OMNIROUTE_PACKAGE_ROOT || process.cwd();
+  const root = globalThis.__omniroutePackageRoot || process.cwd();
   return path.resolve(root, "scripts", "neon", "persistence.mjs");
 }
 
@@ -39,8 +44,7 @@ function run(command: "restore" | "snapshot"): Promise<void> {
       const child = spawn(process.execPath, [helperPath(), command], {
         env: {
           ...process.env,
-          OMNIROUTE_NEON_DATA_DIR: runtimePaths.dataDir,
-          OMNIROUTE_NEON_SQLITE_FILE: runtimePaths.sqliteFile,
+          DATA_DIR: runtimePaths.dataDir,
         },
         stdio: ["ignore", "pipe", "pipe"],
       });
