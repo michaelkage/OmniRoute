@@ -18,11 +18,15 @@ test("provider catalog projects stable provider and model metadata", () => {
   assert.equal(provider.format, REGISTRY.openai.format);
   assert.equal(provider.executor, REGISTRY.openai.executor);
   assert.ok(provider.models.length > 0);
+  assert.ok(Object.isFrozen(provider));
+  assert.ok(Object.isFrozen(provider.models));
+  assert.ok(Object.isFrozen(provider.models[0]));
 
   const firstModel = provider.models[0];
   assert.ok(firstModel.id);
   assert.equal(catalog.getModel("openai", firstModel.id)?.id, firstModel.id);
   assert.deepEqual(catalog.listModels("openai"), provider.models);
+  assert.equal(catalog.getProvider("agy")?.id, "antigravity");
   assert.equal(catalog.getProvider("missing-provider"), null);
   assert.equal(catalog.getModel("missing-provider", "missing-model"), null);
 });
