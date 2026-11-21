@@ -611,7 +611,14 @@ export async function registerNodejs(): Promise<void> {
   // failed (#7288 / #7494). ensureDbInitialized() itself is idempotent and
   // caches the singleton, so every later getDbInstance() call below is a
   // free no-op re-read of the same connection — no double-init cost.
+  // Restore a missing local SQLite database from Neon before the DB adapter opens it.
+  // The feature is explicitly opt-in and remains non-applicable to cloud runtimes.
+  const { restoreNeonPersistenceIfNeeded, startNeonPersistence } =
+    await import("@/lib/neonPersistence");
+  await restoreNeonPersistenceIfNeeded();
+
   await ensureDbReadyForBoot();
+  startNeonPersistence();
 
   await ensureSecrets();
   await Promise.all([
