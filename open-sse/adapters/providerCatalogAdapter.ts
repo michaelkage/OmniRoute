@@ -38,7 +38,7 @@ function projectModel(model: RegistryModelLike): ProviderModelMetadata {
   return {
     id: model.id,
     name: model.name,
-    ...(model.aliases ? { aliases: model.aliases } : {}),
+    ...(model.aliases ? { aliases: Object.freeze([...model.aliases]) } : {}),
     ...(model.contextLength !== undefined ? { contextLength: model.contextLength } : {}),
     ...(model.maxInputTokens !== undefined ? { maxInputTokens: model.maxInputTokens } : {}),
     ...(model.maxOutputTokens !== undefined ? { maxOutputTokens: model.maxOutputTokens } : {}),
@@ -49,8 +49,8 @@ function projectModel(model: RegistryModelLike): ProviderModelMetadata {
     ...(model.supportsVideo !== undefined ? { supportsVideo: model.supportsVideo } : {}),
     ...(model.supportsXHighEffort !== undefined ? { supportsXHighEffort: model.supportsXHighEffort } : {}),
     ...(model.targetFormat !== undefined ? { targetFormat: model.targetFormat } : {}),
-    ...(model.unsupportedParams ? { unsupportedParams: model.unsupportedParams } : {}),
-    ...(model.supportedThinkingEfforts ? { supportedThinkingEfforts: model.supportedThinkingEfforts } : {}),
+    ...(model.unsupportedParams ? { unsupportedParams: Object.freeze([...model.unsupportedParams]) } : {}),
+    ...(model.supportedThinkingEfforts ? { supportedThinkingEfforts: Object.freeze([...model.supportedThinkingEfforts]) } : {}),
     ...(model.requiresProviderPrefix !== undefined ? { requiresProviderPrefix: model.requiresProviderPrefix } : {}),
   };
 }
@@ -69,7 +69,13 @@ function projectProvider(id: string, entry: RegistryEntryLike): ProviderMetadata
 
 /** Adapt the existing implementation registry to the runtime-neutral catalog port. */
 export function createProviderCatalogAdapter(registry: ProviderRegistry): ProviderCatalogPort {
-  const providers = Object.entries(registry).map(([id, entry]) => projectProvider(id, entry));
+  const providers = Object.entries(registry).map(([id, entry]) => {
+    const provider = projectProvider(id, entry);
+    Object.freeze(provider.models);
+    for (const model of provider.models) Object.freeze(model);
+    return Object.freeze(provider);
+  });
+  Object.freeze(providers);
   const byId = new Map<string, ProviderMetadata>();
   const byAlias = new Map<string, ProviderMetadata>();
 
