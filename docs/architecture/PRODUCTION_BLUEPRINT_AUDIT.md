@@ -78,6 +78,11 @@ Milestones 1 and 2 have an initial implementation slice on
   credentials, OAuth secrets, headers, URL builders and session-pool internals.
 - Added focused unit coverage for provider lookup, model lookup, sensitive-field
   exclusion and adapter replacement/restoration. Tests have been authored but not run.
+- Added a secret-safe `CredentialResolutionPort` and closure-backed credential lease.
+  The public contract accepts non-secret provider/connection/account references and
+  exposes only an authorization-application operation, never raw key/token fields.
+- Added a fail-closed resolver injection seam in `open-sse`, with tests for missing
+  configuration, lease application, restoration ordering and missing credentials.
 - Added the versioned JSON Schema
   `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
 - Added AJV 2020-12 tests that validate generated manifests and reject unknown
@@ -88,56 +93,5 @@ Milestones 1 and 2 have an initial implementation slice on
 These are foundation slices, not completion of either milestone. The root application
 still has a non-strict TypeScript configuration, most cross-layer imports remain in
 place, and the runtime boundary between the application shell and streaming engine has
-not yet been extracted. The new typecheck, boundary check, and manifest tests have not
-been executed in this environment; CI evidence is still required.
-
-## Milestone 1 dependency graph — 2026-11-21
-
-A source-backed dependency map is now documented in
-`docs/architecture/RUNTIME_DEPENDENCY_GRAPH.md`. The new
-`npm run audit:architecture` command scans the principal source layers and reports
-cross-layer imports; `npm run check:architecture-boundaries` combines this with the
-contracts leaf check and fails on forbidden UI/browser/contracts layer edges.
-
-Observed coupling includes Next.js routes importing deep streaming-engine helpers and
-application services, `open-sse` importing root `src/shared` and `src/lib` modules,
-and domain fallback policy importing SQLite persistence functions directly. The UI kit
-and browser-pool are the cleanest package boundaries and should remain leaves with
-capabilities injected from their callers.
-
-This is an initial enforcement slice, not full graph closure. The audit has not been
-executed against a local checkout or CI in this environment, so no edge counts or
-passing result are claimed. The first narrow dependency inversion is now landed: strategy vocabulary no longer flows
-from the streaming engine into a root application alias. Provider lookup and model
-metadata now have a stable contract and an injectable registry adapter; request-path
-consumers still need to migrate onto that port. Remaining Milestone 1 work is to
-introduce provider lookup, credential, model metadata, quota and dispatch ports; invert
-the remaining `open-sse` back-dependencies; move domain persistence behind repository
-adapters; and thin route handlers without changing wire behavior.
-
-## Implementation order
-
-The dependencies are not independent. The recommended sequence is:
-
-1. **Boundary and contract foundation:** milestones 1 and 2. Define package ownership, dependency direction, public contracts, schema versioning and compatibility policy.
-2. **Extension platform:** milestones 3 and 4. The SDK and provider contract must exist before a marketplace can safely distribute modules.
-3. **Core policy surfaces:** milestones 5 through 9. Reuse the existing routing, selection, resilience, persistence and protocol implementations behind stable interfaces.
-4. **Trust and operations:** milestones 10 through 12. Signing, secret isolation, correlated telemetry and cost/resource evidence are release gates, not optional polish.
-5. **Product and distribution:** milestones 13 through 16. Shared UI, guided onboarding, marketplace UX and modular runtime profiles depend on the package and extension contracts.
-
-## Non-goals and safety rails
-
-- Do not replace SQLite with PostgreSQL merely because Neon is available. The existing application has a mature SQLite schema, migrations, backup and recovery path.
-- Neon snapshot durability is not a PostgreSQL adapter, live replication, or multi-writer database. It is a recovery layer for one active SQLite writer.
-- Do not duplicate the existing routing strategy registry, provider manifest, resilience mechanisms, onboarding wizard, or Docker runtime targets.
-- Do not move features onto v3.8.55-v3.8.59. Follow the upstream v4 branch/channel policy.
-- Every extraction must preserve current public API behavior and have characterization tests before moving code.
-- Do not claim a milestone complete until its CI quality gates, package/build tests, and runtime integration checks pass.
-
-## Upstream references
-
-- `ROADMAP.md` — preparation, validation, v3 LTS and v4 modular-platform phases.
-- `docs/ops/RELEASE_STRATEGY.md` — branch/channel policy and feature freeze.
-- `docs/reference/PROVIDER_PLUGIN_MANIFEST.md` — current JSON-safe provider sidecar contract.
-- `docs/architecture/RESILIENCE_GUIDE.md` — existing resilience layers and their distinct scopes.
-- `docs/ops/LTS_GO_NO_GO.md` — release quality gates and evidence requirements.
+not yet been extracted. The new typecheck, boundary check, manifest tests and credential
+port tests have not been executed in this environment; CI evidence is still required.
