@@ -51,8 +51,10 @@ The streaming workspace is not an independent runtime package yet:
 - `open-sse/tsconfig.json` maps the root `@/*` alias to `../src/*`.
 - Provider executor base code imports root shared resilience and utility modules.
 - The provider registry imports root OAuth implementation and root service types.
-- `open-sse/services/combo/strategyRegistry.ts` imports canonical strategy types from
-  `src/shared/constants/routingStrategies.ts`.
+- `open-sse/services/combo/strategyRegistry.ts` now imports the canonical strategy
+  vocabulary from `@omniroute/contracts/routing-strategy`. The root
+  `src/shared/constants/routingStrategies.ts` module remains a compatibility facade for
+  application/UI consumers, re-exporting the same contract.
 
 **Finding:** the dependency direction is currently bidirectional at the package level.
 The root application calls into the streaming engine, while streaming/provider code
