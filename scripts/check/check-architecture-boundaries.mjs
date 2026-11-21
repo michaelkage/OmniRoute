@@ -36,6 +36,14 @@ const providerCatalogService = await readFile(
   join(root, "open-sse/services/providerCatalog.ts"),
   "utf8",
 );
+const credentialContract = await readFile(
+  join(contractsSource, "credential-resolution.ts"),
+  "utf8",
+);
+const credentialService = await readFile(
+  join(root, "open-sse/services/credentialResolution.ts"),
+  "utf8",
+);
 const manifestGenerator = await readFile(
   join(root, "open-sse/config/providerPluginManifest.ts"),
   "utf8",
@@ -52,6 +60,8 @@ assert.deepEqual(tsconfig.compilerOptions.paths["@omniroute/contracts"],
   "root TypeScript config must resolve the contracts package entrypoint");
 assert.equal(contractsPackage.exports["./provider-catalog"], "./src/provider-catalog.ts",
   "provider catalog contract must have an explicit package export");
+assert.equal(contractsPackage.exports["./credential-resolution"], "./src/credential-resolution.ts",
+  "credential resolution contract must have an explicit package export");
 assert.ok(providerCatalogContract.includes("export interface ProviderCatalogPort"),
   "provider catalog contract must define the runtime port");
 assert.ok(providerCatalogAdapter.includes("@omniroute/contracts/provider-catalog"),
@@ -60,6 +70,16 @@ assert.equal(providerCatalogAdapter.includes("@/"), false,
   "provider catalog adapter must not import root application aliases");
 assert.ok(providerCatalogService.includes("configureProviderCatalog"),
   "provider catalog must expose composition-time adapter injection");
+assert.ok(credentialContract.includes("export interface CredentialResolutionPort"),
+  "credential contract must define the resolver port");
+assert.ok(credentialContract.includes("applyAuthorization"),
+  "credential lease must expose authorization application, not raw secret fields");
+assert.ok(!/\b(apiKey|accessToken|refreshToken|clientSecret)\s*\??\s*:/i.test(credentialContract),
+  "credential contract must not expose raw secret properties");
+assert.ok(credentialService.includes("configureCredentialResolutionPort"),
+  "credential resolution must expose composition-time adapter injection");
+assert.ok(credentialService.includes("has not been configured"),
+  "credential resolution must fail closed without an installed adapter");
 
 assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
