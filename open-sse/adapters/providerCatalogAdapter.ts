@@ -3,11 +3,38 @@ import type {
   ProviderMetadata,
   ProviderModelMetadata,
 } from "@omniroute/contracts/provider-catalog";
-import type { RegistryEntry, RegistryModel } from "../config/providers/shared.ts";
+interface RegistryModelLike {
+  id: string;
+  name: string;
+  aliases?: readonly string[];
+  contextLength?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  toolCalling?: boolean;
+  supportsReasoning?: boolean;
+  supportsVision?: boolean;
+  supportsAudio?: boolean;
+  supportsVideo?: boolean;
+  supportsXHighEffort?: boolean;
+  targetFormat?: string;
+  unsupportedParams?: readonly string[];
+  supportedThinkingEfforts?: readonly string[];
+  requiresProviderPrefix?: boolean;
+}
 
-type ProviderRegistry = Readonly<Record<string, RegistryEntry>>;
+interface RegistryEntryLike {
+  id: string;
+  alias?: string;
+  format: string;
+  executor: string;
+  authType: string;
+  passthroughModels?: boolean;
+  models?: readonly RegistryModelLike[];
+}
 
-function projectModel(model: RegistryModel): ProviderModelMetadata {
+type ProviderRegistry = Readonly<Record<string, RegistryEntryLike>>;
+
+function projectModel(model: RegistryModelLike): ProviderModelMetadata {
   return {
     id: model.id,
     name: model.name,
@@ -28,7 +55,7 @@ function projectModel(model: RegistryModel): ProviderModelMetadata {
   };
 }
 
-function projectProvider(id: string, entry: RegistryEntry): ProviderMetadata {
+function projectProvider(id: string, entry: RegistryEntryLike): ProviderMetadata {
   return {
     id: entry.id || id,
     alias: entry.alias || entry.id || id,
