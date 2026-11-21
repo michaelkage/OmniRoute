@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const layers = [
   ["app", "src/app"],
+  ["transport", "src/sse"],
+  ["shared", "src/shared"],
   ["domain", "src/domain"],
+  ["persistence", "src/lib/db"],
   ["application", "src/lib"],
   ["streaming", "open-sse"],
   ["ui", "packages/ui-kit/src"],
@@ -91,8 +94,9 @@ assert.deepEqual(violations, [], "UI, browser-pool, and contracts must remain in
 
 const debt = graph.filter((edge) =>
   (edge.from === "app" && edge.to === "streaming") ||
-  (edge.from === "streaming" && ["app", "application"].includes(edge.to)) ||
-  (edge.from === "domain" && edge.to === "application")
+  (edge.from === "streaming" && ["app", "application", "shared", "transport", "persistence"].includes(edge.to)) ||
+  (edge.from === "domain" && ["application", "persistence"].includes(edge.to)) ||
+  (edge.from === "app" && edge.to === "persistence")
 );
 console.log("\nTransitional coupling edges requiring staged extraction: " + debt.length);
 for (const edge of debt.slice(0, 30)) {
