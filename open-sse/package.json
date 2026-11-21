@@ -3,5 +3,8 @@
   "version": "3.8.55",
   "description": "OmniRoute streaming engine — handles provider dispatch, protocol translation, and SSE streaming",
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@omniroute/contracts": "0.1.0"
+  }
 }
