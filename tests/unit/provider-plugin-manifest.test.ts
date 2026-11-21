@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -411,7 +411,7 @@ test("generated provider manifest conforms to the versioned shared JSON Schema",
       "utf8",
     ),
   );
-  const ajv = new Ajv({ allErrors: true, strict: true });
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
   const manifest = generateProviderPluginManifestFromRegistry(registryFixture);
 
