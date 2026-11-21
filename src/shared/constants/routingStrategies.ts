@@ -1,9 +1,7 @@
 import {
   INTERNAL_ROUTING_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
-  type AccountFallbackStrategyValue,
   type AnyRoutingStrategyValue,
-  type AutoRoutingStrategyValue,
   type InternalRoutingStrategyValue,
   type RoutingStrategyValue,
 } from "@omniroute/contracts/routing-strategy";
@@ -11,9 +9,7 @@ import {
 export {
   INTERNAL_ROUTING_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
-  type AccountFallbackStrategyValue,
   type AnyRoutingStrategyValue,
-  type AutoRoutingStrategyValue,
   type InternalRoutingStrategyValue,
   type RoutingStrategyValue,
 } from "@omniroute/contracts/routing-strategy";
