@@ -80,6 +80,20 @@ assert.ok(credentialService.includes("configureCredentialResolutionPort"),
   "credential resolution must expose composition-time adapter injection");
 assert.ok(credentialService.includes("has not been configured"),
   "credential resolution must fail closed without an installed adapter");
+const databaseCredentialAdapter = await readFile(
+  join(root, "src/lib/credentials/providerCredentialResolver.ts"),
+  "utf8",
+);
+assert.ok(databaseCredentialAdapter.includes("getProviderConnectionById"),
+  "production credential adapter must use the existing encrypted connection store");
+assert.ok(databaseCredentialAdapter.includes("getValidApiKey"),
+  "production credential adapter must preserve per-key rotation and health");
+assert.ok(databaseCredentialAdapter.includes("getAccessToken"),
+  "production credential adapter must preserve the OAuth refresh orchestrator");
+assert.ok(databaseCredentialAdapter.includes("updateProviderConnection"),
+  "production credential adapter must persist rotated OAuth tokens through the existing write path");
+assert.ok(databaseCredentialAdapter.includes("requires a proxy"),
+  "OAuth refresh must fail closed when a required proxy cannot be resolved");
 
 assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
