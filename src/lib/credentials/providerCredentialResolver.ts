@@ -17,6 +17,8 @@ export interface StoredProviderConnection {
   readonly expiresAt?: string | null;
   readonly tokenExpiresAt?: string | null;
   readonly tokenType?: string | null;
+  readonly proxyEnabled?: boolean;
+  readonly projectId?: string | null;
   readonly providerSpecificData?: Record<string, unknown> | null;
 }
 
@@ -30,6 +32,9 @@ export interface CredentialResolverDependencies {
   selectApiKey(
     connection: StoredProviderConnection,
   ): SelectedApiKey | null | Promise<SelectedApiKey | null>;
+  shouldRefreshOAuth?(
+    connection: StoredProviderConnection,
+  ): boolean | Promise<boolean>;
   refreshOAuth?(
     connection: StoredProviderConnection,
   ): Promise<StoredProviderConnection | null>;
@@ -86,7 +91,13 @@ export function createDatabaseCredentialResolver(
 
       if (reference.kind === "oauth") {
         const expiry = connection.expiresAt || connection.tokenExpiresAt || undefined;
-        if (!connection.accessToken || !expiry || Date.parse(expiry) <= Date.now()) {
+        const shouldRefresh = !connection.accessToken || (
+          !!expiry &&
+          (dependencies.shouldRefreshOAuth
+            ? await dependencies.shouldRefreshOAuth(connection)
+            : Date.parse(expiry) <= Date.now())
+        );
+        if (shouldRefresh) {
           if (!dependencies.refreshOAuth) return null;
           connection = (await dependencies.refreshOAuth(connection)) ?? null;
           if (
@@ -122,7 +133,7 @@ export interface ProductionCredentialResolverOptions {
    * Resolve the configured proxy for a connection. Required for OAuth refresh
    * when the connection has proxyEnabled=true; returning null fails closed.
    */
-  resolveProxy(connection: StoredProviderConnection): Promise<unknown>;
+  resolveProxy?(connection: StoredProviderConnection): Promise<unknown>;
   logger?: {
     info?(category: string, message: string, metadata?: Record<string, unknown>): void;
     warn?(category: string, message: string, metadata?: Record<string, unknown>): void;
@@ -168,23 +179,31 @@ export function createProductionCredentialResolver(
       return getValidApiKey(connection.id, primary, extras, health);
     },
 
-    async refreshOAuth(connection) {
-      const { getAccessToken, getRefreshLeadMs } = await import("../../../open-sse/services/tokenRefresh.ts");
+    async shouldRefreshOAuth(connection) {
+      const { getRefreshLeadMs } = await import("../../../open-sse/services/tokenRefresh.ts");
       const { parseTokenExpiryMs } = await import("@/lib/tokenHealthCheckExpiry");
       const expiryValue = connection.expiresAt || connection.tokenExpiresAt;
-      const expiryMs = expiryValue ? parseTokenExpiryMs(expiryValue) : 0;
+      if (!expiryValue) return false;
+      const expiryMs = parseTokenExpiryMs(expiryValue);
+      if (!Number.isFinite(expiryMs) || expiryMs <= 0) return true;
       const leadMs = getRefreshLeadMs(connection.provider, connection.providerSpecificData);
-      if (
-        connection.accessToken &&
-        (!expiryMs || expiryMs > Date.now() + leadMs)
-      ) {
-        return connection;
-      }
+      return expiryMs <= Date.now() + leadMs;
+    },
 
+    async refreshOAuth(connection) {
+      const { getAccessToken } = await import("../../../open-sse/services/tokenRefresh.ts");
       if (!connection.refreshToken) return null;
 
       let proxy: unknown = null;
       if (connection.proxyEnabled === true) {
+        if (!options.resolveProxy) {
+          options.logger?.error?.(
+            "CREDENTIAL_RESOLUTION",
+            "OAuth refresh blocked because no proxy resolver is installed",
+            { provider: connection.provider, connectionId: connection.id },
+          );
+          return null;
+        }
         proxy = await options.resolveProxy(connection);
         if (!proxy) {
           options.logger?.error?.(
@@ -204,7 +223,7 @@ export function createProductionCredentialResolver(
           refreshToken: connection.refreshToken,
           expiresAt: connection.expiresAt ?? connection.tokenExpiresAt ?? null,
           providerSpecificData: connection.providerSpecificData ?? {},
-          projectId: (connection as StoredProviderConnection & { projectId?: string }).projectId,
+          projectId: connection.projectId ?? undefined,
         },
         options.logger,
         proxy,
