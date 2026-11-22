@@ -93,7 +93,9 @@ Milestones 1 and 2 have an initial implementation slice on
   leases for both initial sends and stream-recovery sends. The lease selects a healthy
   key from the database-backed connection, retains the selected key identity across
   retries, and passes the selected value through the existing OpenAI executor header
-  builder. The executor still emits its original `Authorization: Bearer` header.
+  builder. The executor still emits its original `Authorization: Bearer` header. The
+  lease boundary checks the resolved executor identity, so CLIProxyAPI/Dario proxy
+  executors and strict-validation dispatches keep their dedicated existing auth paths.
   Other providers and OAuth executor paths remain on their existing credential flow.
 - Added a public free-model discovery worker using OpenRouter's public model catalogue.
   It only indexes models whose input and output prices are both explicitly zero,
