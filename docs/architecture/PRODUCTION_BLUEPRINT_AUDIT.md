@@ -1,7 +1,7 @@
 ---
 title: "Production Blueprint Audit"
 version: 4.0.0-planning
-lastUpdated: 2026-11-21
+lastUpdated: 2026-11-22
 ---
 
 # Production blueprint audit
@@ -114,6 +114,13 @@ Milestones 1 and 2 have an initial implementation slice on
   top-level fields.
 - Added `npm run check:architecture-boundaries` to guard the contracts package as a
   dependency leaf and verify workspace/alias wiring.
+- Added `npm run test:v4-foundation`, a serial, focused suite covering credential
+  leases, resolver behavior, provider-catalog isolation, free-model discovery, Neon
+  persistence helpers and provider-manifest validation.
+- Added `.github/workflows/v4-foundation.yml` on the v4 staging branch. Every push
+  runs the contracts typecheck, architecture-boundary audit and focused foundation
+  suite using the repository's pinned CI install action. The workflow is configured;
+  its first hosted result is the acceptance gate, not an assumed pass.
 
 These are foundation slices, not completion of either milestone. The root application
 still has a non-strict TypeScript configuration, most cross-layer imports remain in
