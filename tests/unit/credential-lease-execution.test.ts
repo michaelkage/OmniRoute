@@ -138,3 +138,33 @@ test("unconfigured non-production test runtimes preserve the legacy execution pa
     else process.env.NODE_ENV = previousNodeEnv;
   }
 });
+
+test("OpenAI provider proxy executors keep their dedicated authentication wrappers", async () => {
+  const restore = configureCredentialResolutionPort({
+    async resolve() {
+      throw new Error("proxy executor must not request an OpenAI key lease");
+    },
+  });
+  const input = {
+    model: "gpt-test",
+    body: {},
+    stream: false,
+    credentials: { connectionId: "connection-1", apiKey: "native-openai-key" },
+  } as unknown as ExecuteInput;
+  let received: ExecuteInput | null = null;
+  const executor = {
+    getProvider() { return "cliproxyapi"; },
+    async execute(next: ExecuteInput) {
+      received = next;
+      return { response: new Response("ok") };
+    },
+  } as unknown as BaseExecutor;
+
+  try {
+    await executeOpenAiWithCredentialLease("openai", executor, input);
+    assert.equal(received, input);
+  } finally {
+    restore();
+    resetCredentialResolutionPort();
+  }
+});
