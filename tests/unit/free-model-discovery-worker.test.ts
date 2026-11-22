@@ -72,6 +72,17 @@ test("free-model discovery rejects malformed and oversized catalogue responses",
   );
 });
 
+test("free-model discovery rejects a changed pricing schema before catalogue synchronization", async () => {
+  await assert.rejects(
+    discoverFreeModels({
+      fetchFn: (async () => new Response(JSON.stringify({
+        data: [{ id: "vendor/model", name: "Model", pricing: null }],
+      }))) as typeof fetch,
+    }),
+    /pricing metadata failed schema validation/,
+  );
+});
+
 test("free-model discovery does not accept a non-success upstream response", async () => {
   await assert.rejects(
     discoverFreeModels({ fetchFn: (async () => new Response("denied", { status: 503 })) as typeof fetch }),
