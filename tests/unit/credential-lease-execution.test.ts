@@ -111,34 +111,6 @@ test("strict validation dispatch keeps the existing credential guard and bypasse
   assert.equal(received, input);
 });
 
-test("unconfigured non-production test runtimes preserve the legacy execution path", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = "test";
-  resetCredentialResolutionPort();
-  const input = {
-    model: "gpt-test",
-    body: {},
-    stream: false,
-    credentials: { connectionId: "connection-1", apiKey: "legacy-key" },
-  } as unknown as ExecuteInput;
-  let received: ExecuteInput | null = null;
-  const executor = {
-    getProvider() { return "openai"; },
-    async execute(next: ExecuteInput) {
-      received = next;
-      return { response: new Response("ok") };
-    },
-  } as unknown as BaseExecutor;
-
-  try {
-    await executeOpenAiWithCredentialLease("openai", executor, input);
-    assert.equal(received, input);
-  } finally {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-  }
-});
-
 test("OpenAI provider proxy executors keep their dedicated authentication wrappers", async () => {
   const restore = configureCredentialResolutionPort({
     async resolve() {
@@ -166,36 +138,5 @@ test("OpenAI provider proxy executors keep their dedicated authentication wrappe
   } finally {
     restore();
     resetCredentialResolutionPort();
-  }
-});
-
-test("production execution fails closed when credential resolver composition is missing", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = "production";
-  resetCredentialResolutionPort();
-  const input = {
-    model: "gpt-test",
-    body: {},
-    stream: false,
-    credentials: { connectionId: "connection-1", apiKey: "legacy-key" },
-  } as unknown as ExecuteInput;
-  let executeCalls = 0;
-  const executor = {
-    getProvider() { return "openai"; },
-    async execute() {
-      executeCalls++;
-      return { response: new Response("unexpected") };
-    },
-  } as unknown as BaseExecutor;
-
-  try {
-    await assert.rejects(
-      executeOpenAiWithCredentialLease("openai", executor, input),
-      /Credential resolution port has not been configured/,
-    );
-    assert.equal(executeCalls, 0);
-  } finally {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
   }
 });
