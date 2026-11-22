@@ -19,10 +19,12 @@ export async function executeOpenAiWithCredentialLease(
   const credentials = input.credentials;
   const connectionId =
     typeof credentials?.connectionId === "string" ? credentials.connectionId.trim() : "";
+  const executorProvider =
+    typeof executor.getProvider === "function" ? executor.getProvider() : null;
 
   if (
     provider !== "openai" ||
-    executor.getProvider() !== "openai" ||
+    executorProvider !== "openai" ||
     input.validationDispatch !== undefined ||
     !connectionId ||
     (typeof credentials.accessToken === "string" && credentials.accessToken.length > 0)
