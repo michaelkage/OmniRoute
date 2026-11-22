@@ -11,6 +11,8 @@ export interface CredentialReference {
   readonly providerId: string;
   readonly connectionId?: string;
   readonly accountId?: string;
+  /** Request-local sticky API-key identity used to preserve multi-attempt affinity. */
+  readonly selectedKeyId?: string;
   readonly kind: CredentialKind;
   readonly purpose: CredentialPurpose;
 }
