@@ -129,6 +129,8 @@ assert.ok(discoveryWorker.includes("replaceCustomModels"),
   "verified free models must be synchronized into the existing OpenRouter model catalogue");
 assert.ok(discoveryWorker.includes("requiresUserCredential: true"),
   "discovered models must require the operator's own provider credential");
+assert.ok(rootPackage.files.includes("scripts/discovery/"),
+  "the manual discovery command must be included in published packages");
 
 assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
