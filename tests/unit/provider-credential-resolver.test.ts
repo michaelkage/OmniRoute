@@ -125,3 +125,71 @@ test("expired OAuth fails closed when no refresh adapter is supplied", async () 
     null,
   );
 });
+
+test("OAuth credentials without a stored expiry remain usable without forced refresh", async () => {
+  const stored = connection({
+    accessToken: "long-lived-token",
+    refreshToken: null,
+    expiresAt: null,
+    tokenExpiresAt: null,
+  });
+  let refreshCalls = 0;
+  const resolver = createDatabaseCredentialResolver({
+    loadConnection: async () => stored,
+    selectApiKey: () => null,
+    refreshOAuth: async () => {
+      refreshCalls++;
+      return null;
+    },
+  });
+
+  const lease = await resolver.resolve({
+    providerId: "openai",
+    connectionId: "connection-1",
+    kind: "oauth",
+    purpose: "inference",
+  });
+
+  assert.equal(refreshCalls, 0);
+  assert.ok(lease);
+  assert.equal(
+    await lease.withCredential((credential) =>
+      credential.kind === "oauth" ? credential.accessToken : null,
+    ),
+    "long-lived-token",
+  );
+});
+
+test("OAuth refresh policy can trigger a proactive refresh before expiry", async () => {
+  const stored = connection({
+    accessToken: "near-expiry-token",
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  });
+  const refreshed = connection({ accessToken: "proactively-refreshed-token" });
+  let refreshCalls = 0;
+  const resolver = createDatabaseCredentialResolver({
+    loadConnection: async () => stored,
+    selectApiKey: () => null,
+    shouldRefreshOAuth: () => true,
+    refreshOAuth: async () => {
+      refreshCalls++;
+      return refreshed;
+    },
+  });
+
+  const lease = await resolver.resolve({
+    providerId: "openai",
+    connectionId: "connection-1",
+    kind: "oauth",
+    purpose: "inference",
+  });
+
+  assert.equal(refreshCalls, 1);
+  assert.ok(lease);
+  assert.equal(
+    await lease.withCredential((credential) =>
+      credential.kind === "oauth" ? credential.accessToken : null,
+    ),
+    "proactively-refreshed-token",
+  );
+});
