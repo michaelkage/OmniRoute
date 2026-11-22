@@ -72,8 +72,8 @@ assert.ok(providerCatalogService.includes("configureProviderCatalog"),
   "provider catalog must expose composition-time adapter injection");
 assert.ok(credentialContract.includes("export interface CredentialResolutionPort"),
   "credential contract must define the resolver port");
-assert.ok(credentialContract.includes("applyAuthorization"),
-  "credential lease must expose authorization application, not raw secret fields");
+assert.ok(credentialContract.includes("withCredential"),
+  "credential lease must expose callback-scoped credential access");
 assert.ok(!/\b(apiKey|accessToken|refreshToken|clientSecret)\s*\??\s*:/i.test(credentialContract),
   "credential contract must not expose raw secret properties");
 assert.ok(credentialService.includes("configureCredentialResolutionPort"),
