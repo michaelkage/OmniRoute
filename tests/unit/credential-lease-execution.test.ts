@@ -79,3 +79,28 @@ test("non-OpenAI executors retain their original credential path", async () => {
   await executeOpenAiWithCredentialLease("anthropic", executor, input);
   assert.equal(received, input);
 });
+
+test("strict validation dispatch keeps the existing credential guard and bypasses inference leases", async () => {
+  resetCredentialResolutionPort();
+  const input = {
+    model: "gpt-test",
+    body: {},
+    stream: false,
+    credentials: {
+      connectionId: "connection-1",
+      apiKey: "validation-key",
+      providerSpecificData: { extraApiKeys: ["secondary-key"] },
+    },
+    validationDispatch: { reject() { throw new Error("validation fence"); } },
+  } as unknown as ExecuteInput;
+  let received: ExecuteInput | null = null;
+  const executor = {
+    async execute(next: ExecuteInput) {
+      received = next;
+      return { response: new Response("ok") };
+    },
+  } as unknown as BaseExecutor;
+
+  await executeOpenAiWithCredentialLease("openai", executor, input);
+  assert.equal(received, input);
+});
