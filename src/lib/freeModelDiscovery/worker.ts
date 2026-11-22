@@ -31,6 +31,8 @@ export type FreeModelDiscoverySnapshot = {
     id: "openrouter";
     name: "OpenRouter";
     status: "existing-provider";
+    authType: "api-key";
+    credentialSetupUrl: "https://openrouter.ai/keys";
     requiresUserCredential: true;
     modelCount: number;
   }>;
@@ -230,6 +232,8 @@ export async function discoverFreeModels(
       id: "openrouter",
       name: "OpenRouter",
       status: "existing-provider",
+      authType: "api-key",
+      credentialSetupUrl: "https://openrouter.ai/keys",
       requiresUserCredential: true,
       modelCount: models.length,
     }],
