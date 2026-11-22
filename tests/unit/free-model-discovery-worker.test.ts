@@ -33,6 +33,12 @@ test("free-model discovery indexes only public zero-priced OpenRouter models", a
           name: "Invalid ID",
           pricing: { prompt: "0", completion: "0" },
         },
+        {
+          id: "vendor/blank-price",
+          name: "Blank Price",
+          pricing: { prompt: " ", completion: "0" },
+        },
+        null,
       ],
     }), { status: 200, headers: { "content-type": "application/json" } });
   };
@@ -44,12 +50,12 @@ test("free-model discovery indexes only public zero-priced OpenRouter models", a
 
   assert.equal(requestedUrl, "https://openrouter.ai/api/v1/models");
   assert.equal(snapshot.providerCandidates.length, 1);
-  assert.equal(snapshot.providerCandidates[0].id, "openrouter");
+  assert.equal(snapshot.providerCandidates[0]?.id, "openrouter");
   assert.equal(snapshot.models.length, 1);
-  assert.equal(snapshot.models[0].id, "vendor/free-model:free");
-  assert.equal(snapshot.models[0].requiresUserCredential, true);
-  assert.equal(snapshot.models[0].activation, "available-after-provider-auth");
-  assert.deepEqual(snapshot.models[0].inputModalities, ["text", "image"]);
+  assert.equal(snapshot.models[0]?.id, "vendor/free-model:free");
+  assert.equal(snapshot.models[0]?.requiresUserCredential, true);
+  assert.equal(snapshot.models[0]?.activation, "available-after-provider-auth");
+  assert.deepEqual(snapshot.models[0]?.inputModalities, ["text", "image"]);
 });
 
 test("free-model discovery rejects malformed and oversized catalogue responses", async () => {
