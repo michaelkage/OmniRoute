@@ -164,6 +164,41 @@ infrastructure implements ports; the composition root supplies implementations. 
 presentation leaf. Transport handlers translate HTTP into application commands and
 responses; they do not own provider policy or SQL.
 
+## Credential resolution composition and first consumer
+
+The Node server installs `createProductionCredentialResolver` immediately after
+`ensureDbReadyForBoot()`. The adapter reads credentials through the existing
+lazy-decrypting provider-connection store, uses the existing per-key health/rotation
+service, and delegates OAuth refresh to the existing serialized refresh orchestrator.
+Its proxy callback calls `resolveProxyForConnection` with the connection ID and
+provider ID, preserving account/provider/combo/global/automatic proxy scope resolution.
+A direct result is a supported configuration; a thrown resolution error is not treated
+as permission to retry directly.
+
+The first migrated consumer is the canonical OpenAI API-key executor. Both initial and
+stream-recovery sends use `executeOpenAiWithCredentialLease`. The lease callback supplies
+the selected API key to the existing `DefaultExecutor`, so the existing provider header
+builder continues to create the same Bearer authorization header. The request-local
+selected key ID is retained across retries; the cloned executor credentials suppress a
+second key rotation, while the parent request metadata keeps the full extra-key list for
+failure accounting. Other providers and OAuth executor paths remain unchanged until
+their individual auth contracts are migrated.
+
+## Free-model discovery boundary
+
+`src/lib/freeModelDiscovery` fetches the public OpenRouter model catalogue and admits
+only entries with explicit zero input and output prices. It synchronizes those models
+into the existing `openrouter` custom-model catalogue using source
+`free-model-discovery`, preserving operator-owned entries and metadata. A snapshot is
+written atomically under `DATA_DIR` with restrictive file permissions. The scheduler
+runs every six hours by default and is disabled by
+`OMNIROUTE_FREE_MODEL_DISCOVERY_ENABLED=0`.
+
+The worker does not scrape or import API keys. Discovered models require an existing
+OpenRouter provider connection configured through the normal credential UI. It does
+not register arbitrary providers, endpoints, or executors; those require a reviewed
+provider integration and an explicit authentication contract.
+
 ## Enforceable rules
 
 1. `packages/contracts` has no runtime dependencies and cannot import other layers.
