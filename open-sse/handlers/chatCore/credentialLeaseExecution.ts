@@ -22,6 +22,7 @@ export async function executeOpenAiWithCredentialLease(
 
   if (
     provider !== "openai" ||
+    input.validationDispatch !== undefined ||
     !connectionId ||
     (typeof credentials.accessToken === "string" && credentials.accessToken.length > 0)
   ) {
