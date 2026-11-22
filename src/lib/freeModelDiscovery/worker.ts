@@ -77,6 +77,20 @@ function isSafeModelId(value: unknown): value is string {
     /^[A-Za-z0-9][A-Za-z0-9._:/+-]*$/.test(value);
 }
 
+function hasValidPricingMetadata(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const model = value as OpenRouterModel;
+  const pricing = model.pricing;
+  return (
+    isSafeModelId(model.id) &&
+    !!pricing &&
+    (typeof pricing.prompt === "string" || typeof pricing.prompt === "number") &&
+    (typeof pricing.completion === "string" || typeof pricing.completion === "number") &&
+    String(pricing.prompt).trim().length > 0 &&
+    String(pricing.completion).trim().length > 0
+  );
+}
+
 function toCandidate(value: unknown, discoveredAt: string): FreeModelCandidate | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const model = value as OpenRouterModel;
@@ -191,6 +205,12 @@ export async function discoverFreeModels(
   const fetchFn = options.fetchFn ?? globalThis.fetch;
   const discoveredAt = (options.now ?? (() => new Date()))().toISOString();
   const rawModels = await readOpenRouterCatalog(fetchFn);
+  if (rawModels.length > 0) {
+    const validPricingRecords = rawModels.filter(hasValidPricingMetadata).length;
+    if (validPricingRecords / rawModels.length < 0.95) {
+      throw new Error("OpenRouter catalog pricing metadata failed schema validation");
+    }
+  }
   const unique = new Map<string, FreeModelCandidate>();
 
   for (const raw of rawModels) {
