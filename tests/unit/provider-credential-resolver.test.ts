@@ -46,6 +46,34 @@ test("API-key resolution delegates key selection and keeps material off the leas
   });
 });
 
+test("API-key resolver forwards the request-local sticky key identity", async () => {
+  let receivedKeyId: string | undefined;
+  const resolver = createDatabaseCredentialResolver({
+    loadConnection: async () => connection(),
+    selectApiKey: (_stored, reference) => {
+      receivedKeyId = reference.selectedKeyId;
+      return { key: "sticky-key", keyId: "extra_2" };
+    },
+  });
+
+  const lease = await resolver.resolve({
+    providerId: "openai",
+    connectionId: "connection-1",
+    kind: "api-key",
+    purpose: "inference",
+    selectedKeyId: "extra_2",
+  });
+
+  assert.equal(receivedKeyId, "extra_2");
+  assert.ok(lease);
+  assert.equal(
+    await lease.withCredential((credential) =>
+      credential.kind === "api-key" ? credential.keyId : null,
+    ),
+    "extra_2",
+  );
+});
+
 test("OAuth resolution refreshes expired credentials and returns the persisted connection", async () => {
   const expired = connection({
     accessToken: "expired-token",
