@@ -754,6 +754,12 @@ export async function registerNodejs(): Promise<void> {
     console.log("[STARTUP] Quota cache background refresh started");
     startProviderLimitsSyncScheduler();
     console.log("[STARTUP] Provider limits sync scheduler started");
+    if (!skipInHeadless("free-model-discovery")) {
+      const { startFreeModelDiscoveryScheduler } =
+        await import("@/lib/freeModelDiscovery/scheduler");
+      startFreeModelDiscoveryScheduler();
+      console.log("[STARTUP] Free-model discovery scheduler started");
+    }
     const { startQuotaSessionRecovery } = await import("@/lib/quota/quotaSessionRecovery");
     startQuotaSessionRecovery();
     console.log("[STARTUP] Quota session recovery scheduler started (opt-in)");
