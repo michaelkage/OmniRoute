@@ -80,22 +80,26 @@ remains authoritative during the transition.
 
 ### Credential resolution and secret isolation
 
-The contracts package now defines `CredentialResolutionPort` using a request reference
+The contracts package defines `CredentialResolutionPort` using a request reference
 (provider, connection/account identifiers, credential kind and purpose) and a
-closure-backed `CredentialLease`. The lease can apply authorization to a
-request-local header writer, but the contract has no API-key, access-token, refresh-token
-or client-secret fields. This prevents secrets from becoming provider metadata or
-ordinary serializable contract values.
+closure-backed `CredentialLease`. Secret material is available only through the
+lease's `withCredential` callback; it is not stored as a property on the lease or
+provider metadata. Provider-specific code remains responsible for constructing the
+correct upstream authorization headers.
 
-`open-sse/services/credentialResolution.ts` is the fail-closed composition seam. It
-requires the application to install a storage-backed resolver and deliberately does not
-fall back to environment variables, provider registry fields or fabricated credentials.
+`src/lib/credentials/providerCredentialResolver.ts` now contains a database-backed
+adapter factory. It reads through `getProviderConnectionById`, preserving the existing
+lazy-decryption boundary, and delegates API-key choice to the existing key rotator after
+hydrating per-key health state. OAuth refresh delegates to `getAccessToken`, persists
+rotated values through `updateProviderConnection` inside the refresh callback, and
+requires proxy resolution for connections marked as proxy-enabled. The adapter reloads
+the connection after persistence rather than trusting the in-memory refresh result.
 
-This is contract and injection infrastructure only. The existing executor credential
-shape, SQLite connection loading, API-key rotation and provider-specific OAuth refresh
-remain the active runtime path until a storage-backed adapter can preserve their
-encryption, rotation, refresh serialization, compare-and-swap persistence and
-request-local lifecycle guarantees. No request-path consumer is migrated yet.
+`open-sse/services/credentialResolution.ts` remains the fail-closed composition seam.
+The new production adapter factory is not yet installed by the application composition
+root, and no request-path consumer is migrated. This is intentional: executor-specific
+header construction, sticky multi-turn key selection, per-key health persistence and
+proxy resolver wiring must be moved without changing existing request behavior.
 
 ## Domain policy to persistence
 
