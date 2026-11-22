@@ -60,7 +60,7 @@ merge these feature changes into the v3 validation or future v3 LTS line.
 | 15 | Modular Extension Marketplace | Partial | Build a trusted registry, signed artifacts, mandatory integrity verification, compatibility resolution, rollback and sandboxed installation |
 | 16 | Runtime Profiles and Modular Distribution | Partial | Formalize minimal/server/CLI/desktop profiles and publish versioned core, SDK and module artifacts with compatibility guarantees |
 
-## V4 staging progress — 2026-11-21
+## V4 staging progress — 2026-11-22
 
 Milestones 1 and 2 have an initial implementation slice on
 `feature/v4-production-blueprint-neon-latest`:
