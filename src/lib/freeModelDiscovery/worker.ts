@@ -218,9 +218,14 @@ async function syncOpenRouterModelCatalog(
   if (candidates.length === 0) return;
 
   const { getCustomModels, replaceCustomModels } = await import("@/lib/db/models");
+  type CustomModelInput = Parameters<typeof replaceCustomModels>[1][number];
   const existing = await getCustomModels("openrouter");
-  const current = Array.isArray(existing) ? existing as Array<Record<string, unknown>> : [];
-  const operatorOwned = current.filter((model) => model.source !== "free-model-discovery");
+  const current = Array.isArray(existing)
+    ? existing as Array<CustomModelInput & { supportsVision?: boolean }>
+    : [];
+  const operatorOwned = current.filter((model) =>
+    typeof model.id === "string" && model.source !== "free-model-discovery"
+  );
   const operatorOwnedIds = new Set(
     operatorOwned
       .map((model) => model.id)
@@ -242,7 +247,10 @@ async function syncOpenRouterModelCatalog(
       isFree: true,
     }));
 
-  await replaceCustomModels("openrouter", [...operatorOwned, ...managed]);
+  await replaceCustomModels(
+    "openrouter",
+    [...operatorOwned, ...managed] as CustomModelInput[],
+  );
 }
 
 export async function runFreeModelDiscovery(
