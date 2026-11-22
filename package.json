@@ -26,6 +26,7 @@
     ".npmrc",
     "scripts/ops/opencode-free-relay.ts",
     "scripts/neon/",
+    "scripts/discovery/",
     "scripts/build/postinstall.mjs",
     "scripts/build/betterSqlitePrebuildTarget.mjs",
     "scripts/build/fixPlaywrightAndroid.mjs",
