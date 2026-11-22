@@ -51,6 +51,7 @@ test("free-model discovery indexes only public zero-priced OpenRouter models", a
   assert.equal(requestedUrl, "https://openrouter.ai/api/v1/models");
   assert.equal(snapshot.providerCandidates.length, 1);
   assert.equal(snapshot.providerCandidates[0]?.id, "openrouter");
+  assert.equal(snapshot.providerCandidates[0]?.credentialSetupUrl, "https://openrouter.ai/keys");
   assert.equal(snapshot.models.length, 1);
   assert.equal(snapshot.models[0]?.id, "vendor/free-model:free");
   assert.equal(snapshot.models[0]?.requiresUserCredential, true);
