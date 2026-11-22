@@ -23,8 +23,6 @@ export async function executeOpenAiWithCredentialLease(
   if (
     provider !== "openai" ||
     !connectionId ||
-    typeof credentials?.apiKey !== "string" ||
-    !credentials.apiKey.trim() ||
     (typeof credentials.accessToken === "string" && credentials.accessToken.length > 0)
   ) {
     return executor.execute(input);
