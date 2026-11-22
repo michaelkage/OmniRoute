@@ -114,9 +114,28 @@ async function readOpenRouterCatalog(fetchFn: typeof fetch): Promise<OpenRouterM
     throw new Error(`OpenRouter catalog request failed with HTTP ${response.status}`);
   }
 
-  const body = await response.text();
-  if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) {
-    throw new Error("OpenRouter catalog response exceeded the configured size limit");
+  if (!response.body) {
+    throw new Error("OpenRouter catalog response had no body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let body = "";
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error("OpenRouter catalog response exceeded the configured size limit");
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+    body += decoder.decode();
+  } finally {
+    reader.releaseLock();
   }
 
   let parsed: unknown;
