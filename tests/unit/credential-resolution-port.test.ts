@@ -6,7 +6,6 @@ import {
   resetCredentialResolutionPort,
 } from "../../open-sse/services/credentialResolution.ts";
 import type {
-  CredentialHeaderWriter,
   CredentialReference,
   CredentialResolutionPort,
 } from "@omniroute/contracts/credential-resolution";
@@ -22,7 +21,7 @@ test("credential resolution fails closed until an application adapter is configu
   );
 });
 
-test("credential lease applies authorization without exposing a raw credential field", async () => {
+test("credential lease exposes material only through its scoped callback", async () => {
   const reference: CredentialReference = {
     providerId: "openai",
     connectionId: "connection-1",
@@ -33,8 +32,8 @@ test("credential lease applies authorization without exposing a raw credential f
     async resolve(received) {
       assert.deepEqual(received, reference);
       return {
-        applyAuthorization(headers: CredentialHeaderWriter) {
-          headers.set("authorization", "Bearer test-secret");
+        async withCredential(consumer) {
+          return consumer({ kind: "api-key", value: "test-secret", keyId: "primary" });
         },
       };
     },
@@ -44,16 +43,15 @@ test("credential lease applies authorization without exposing a raw credential f
   assert.equal(getCredentialResolutionPort(), resolver);
 
   const lease = await getCredentialResolutionPort().resolve(reference);
-  const headers = new Map<string, string>();
-  lease?.applyAuthorization({
-    set(name, value) {
-      headers.set(name.toLowerCase(), value);
-    },
+  assert.ok(lease);
+  assert.equal("value" in lease, false);
+  assert.equal("apiKey" in lease, false);
+  const material = await lease.withCredential((credential) => credential);
+  assert.deepEqual(material, {
+    kind: "api-key",
+    value: "test-secret",
+    keyId: "primary",
   });
-  assert.equal(headers.get("authorization"), "Bearer test-secret");
-  assert.equal("apiKey" in (lease ?? {}), false);
-  assert.equal("accessToken" in (lease ?? {}), false);
-  assert.equal("refreshToken" in (lease ?? {}), false);
 
   restore();
   assert.throws(
