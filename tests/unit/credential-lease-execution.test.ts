@@ -46,11 +46,13 @@ test("OpenAI API-key execution consumes a callback-scoped lease and preserves se
     const result = await executeOpenAiWithCredentialLease("openai", executor, input);
 
     assert.equal(result, expected);
+    assert.ok(received);
     assert.equal(requestedKeyId, "extra_0");
     assert.equal(received?.credentials.apiKey, "leased-secret");
     assert.equal(received?.credentials.providerSpecificData?.selectedKeyId, "extra_1");
     assert.deepEqual(received?.credentials.providerSpecificData?.extraApiKeys, []);
     assert.equal(input.credentials.providerSpecificData?.selectedKeyId, "extra_1");
+    assert.deepEqual(input.credentials.providerSpecificData?.extraApiKeys, ["old-secret"]);
     assert.equal(input.credentials.apiKey, "stale-secret");
   } finally {
     restore();
