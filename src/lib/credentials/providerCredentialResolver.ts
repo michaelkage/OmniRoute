@@ -113,3 +113,111 @@ export function createDatabaseCredentialResolver(
     },
   };
 }
+
+
+export interface ProductionCredentialResolverOptions {
+  /**
+   * Resolve the configured proxy for a connection. Required for OAuth refresh
+   * when the connection has proxyEnabled=true; returning null fails closed.
+   */
+  resolveProxy(connection: StoredProviderConnection): Promise<unknown>;
+  logger?: {
+    info?(category: string, message: string, metadata?: Record<string, unknown>): void;
+    warn?(category: string, message: string, metadata?: Record<string, unknown>): void;
+    error?(category: string, message: string, metadata?: Record<string, unknown>): void;
+  };
+}
+
+/**
+ * Build the SQLite-backed production adapter using OmniRoute's existing
+ * lazy-decrypting connection store, per-key health/rotation, and serialized
+ * OAuth refresh + compare-and-swap persistence.
+ */
+export function createProductionCredentialResolver(
+  options: ProductionCredentialResolverOptions,
+): CredentialResolutionPort {
+  return createDatabaseCredentialResolver({
+    async loadConnection(connectionId) {
+      const { getProviderConnectionById } = await import("@/lib/db/providers");
+      return (await getProviderConnectionById(connectionId)) as StoredProviderConnection | null;
+    },
+
+    selectApiKey(connection) {
+      const providerData = connection.providerSpecificData ?? {};
+      const health =
+        providerData.apiKeyHealth && typeof providerData.apiKeyHealth === "object"
+          ? (providerData.apiKeyHealth as Record<string, import("../../../open-sse/services/apiKeyRotator.ts").KeyHealth>)
+          : undefined;
+      const extras = Array.isArray(providerData.extraApiKeys)
+        ? providerData.extraApiKeys.filter(
+            (key): key is string => typeof key === "string" && key.trim().length > 0,
+          )
+        : [];
+      const primary = typeof connection.apiKey === "string" ? connection.apiKey : "";
+      if (!primary && extras.length === 0) return null;
+
+      // Rotation health is hydrated from the decrypted DB snapshot on first use.
+      return import("../../../open-sse/services/apiKeyRotator.ts").then(({ getValidApiKey, syncHealthFromDB }) => {
+        syncHealthFromDB(connection.id, health);
+        return getValidApiKey(connection.id, primary, extras, health);
+      }) as unknown as SelectedApiKey | null;
+    },
+
+    async refreshOAuth(connection) {
+      const { getAccessToken, getRefreshLeadMs } = await import("../../../open-sse/services/tokenRefresh.ts");
+      const { parseTokenExpiryMs } = await import("@/lib/tokenHealthCheckExpiry");
+      const expiryValue = connection.expiresAt || connection.tokenExpiresAt;
+      const expiryMs = expiryValue ? parseTokenExpiryMs(expiryValue) : 0;
+      const leadMs = getRefreshLeadMs(connection.provider, connection.providerSpecificData);
+      if (
+        connection.accessToken &&
+        (!expiryMs || expiryMs > Date.now() + leadMs)
+      ) {
+        return connection;
+      }
+
+      if (!connection.refreshToken) return null;
+
+      let proxy: unknown = null;
+      if (connection.proxyEnabled === true) {
+        proxy = await options.resolveProxy(connection);
+        if (!proxy) {
+          options.logger?.error?.(
+            "CREDENTIAL_RESOLUTION",
+            "OAuth refresh blocked because the connection requires a proxy but none resolved",
+            { provider: connection.provider, connectionId: connection.id },
+          );
+          return null;
+        }
+      }
+
+      const refreshed = await getAccessToken(
+        connection.provider,
+        {
+          connectionId: connection.id,
+          accessToken: connection.accessToken ?? null,
+          refreshToken: connection.refreshToken,
+          expiresAt: connection.expiresAt ?? connection.tokenExpiresAt ?? null,
+          providerSpecificData: connection.providerSpecificData ?? {},
+          projectId: (connection as StoredProviderConnection & { projectId?: string }).projectId,
+        },
+        options.logger,
+        proxy,
+        async (result: Record<string, unknown>) => {
+          const { updateProviderConnection } = await import("@/lib/db/providers");
+          const persisted = await updateProviderConnection(connection.id, result);
+          if (!persisted) {
+            throw new Error("OAuth token rotation was not persisted for the connection");
+          }
+        },
+      );
+
+      if (!refreshed || typeof refreshed !== "object" || !("accessToken" in refreshed)) {
+        return null;
+      }
+
+      const { getProviderConnectionById } = await import("@/lib/db/providers");
+      return (await getProviderConnectionById(connection.id)) as StoredProviderConnection | null;
+    },
+  });
+}
