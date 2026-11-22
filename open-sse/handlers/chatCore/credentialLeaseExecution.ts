@@ -12,6 +12,7 @@ import { getCredentialResolutionPort } from "../../services/credentialResolution
  * a second rotation after the lease has selected a health-aware key.
  */
 export async function executeOpenAiWithCredentialLease(
+  provider: string,
   executor: Pick<BaseExecutor, "execute">,
   input: ExecuteInput,
 ): ReturnType<BaseExecutor["execute"]> {
@@ -20,6 +21,7 @@ export async function executeOpenAiWithCredentialLease(
     typeof credentials?.connectionId === "string" ? credentials.connectionId.trim() : "";
 
   if (
+    provider !== "openai" ||
     !connectionId ||
     typeof credentials?.apiKey !== "string" ||
     !credentials.apiKey.trim() ||
