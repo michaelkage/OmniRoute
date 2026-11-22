@@ -60,7 +60,10 @@ export async function executeOpenAiWithCredentialLease(
 
     // Keep the selected identity on the request-local parent credentials so stream
     // recovery and retries retain the same key instead of rotating mid-request.
-    credentials.providerSpecificData = providerSpecificData;
+    credentials.providerSpecificData = {
+      ...(credentials.providerSpecificData ?? {}),
+      selectedKeyId: material.keyId,
+    };
 
     const leasedInput: ExecuteInput = {
       ...input,
