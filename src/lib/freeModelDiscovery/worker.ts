@@ -241,9 +241,24 @@ async function syncOpenRouterModelCatalog(
       source: "free-model-discovery",
       apiFormat: "chat-completions",
       supportedEndpoints: ["chat"],
-      ...(candidate.inputModalities.includes("image") ? { supportsVision: true } : {}),
+      supportsVision: candidate.inputModalities.includes("image"),
       isFree: true,
     }));
+
+  const existingManaged = current
+    .filter((model) => model.source === "free-model-discovery")
+    .map((model) => ({
+      id: model.id,
+      name: model.name ?? model.id,
+      source: model.source,
+      apiFormat: model.apiFormat ?? "chat-completions",
+      supportedEndpoints: model.supportedEndpoints ?? ["chat"],
+      supportsVision: model.supportsVision === true,
+      isFree: model.isFree === true,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const desiredManaged = [...managed].sort((a, b) => a.id.localeCompare(b.id));
+  if (JSON.stringify(existingManaged) === JSON.stringify(desiredManaged)) return;
 
   await replaceCustomModels(
     "openrouter",
