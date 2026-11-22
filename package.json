@@ -103,6 +103,7 @@
     "neon:ensure": "node scripts/neon/persistence.mjs ensure",
     "neon:snapshot": "node scripts/neon/persistence.mjs snapshot",
     "neon:restore": "node scripts/neon/persistence.mjs restore",
+    "models:discover": "node --import tsx scripts/discovery/run-free-model-discovery.mjs",
     "dev:candidate": "node scripts/dev/candidate.mjs",
     "prebuild:docs": "node scripts/docs/gen-openapi-module.mjs",
     "gen:provider-reference": "bun scripts/docs/gen-provider-reference.ts",
