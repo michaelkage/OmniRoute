@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { BaseExecutor, ExecuteInput } from "../../open-sse/executors/base.ts";
+import { DefaultExecutor } from "../../open-sse/executors/default.ts";
 import {
   configureCredentialResolutionPort,
   resetCredentialResolutionPort,
@@ -49,7 +50,10 @@ test("OpenAI API-key execution consumes a callback-scoped lease and preserves se
     assert.ok(received);
     assert.equal(requestedKeyId, "extra_0");
     assert.equal(received?.credentials.apiKey, "leased-secret");
-    assert.equal(received?.credentials.providerSpecificData?.selectedKeyId, "extra_1");
+    const defaultExecutor = new DefaultExecutor("openai");
+    const upstreamHeaders = defaultExecutor.buildHeaders(received.credentials, false);
+    assert.equal(upstreamHeaders.Authorization, "Bearer leased-secret");
+    assert.equal(received.credentials.providerSpecificData?.selectedKeyId, "extra_1");
     assert.deepEqual(received?.credentials.providerSpecificData?.extraApiKeys, []);
     assert.equal(input.credentials.providerSpecificData?.selectedKeyId, "extra_1");
     assert.deepEqual(input.credentials.providerSpecificData?.extraApiKeys, ["old-secret"]);
