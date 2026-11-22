@@ -13,7 +13,7 @@ import { getCredentialResolutionPort } from "../../services/credentialResolution
  */
 export async function executeOpenAiWithCredentialLease(
   provider: string,
-  executor: Pick<BaseExecutor, "execute">,
+  executor: Pick<BaseExecutor, "execute" | "getProvider">,
   input: ExecuteInput,
 ): ReturnType<BaseExecutor["execute"]> {
   const credentials = input.credentials;
@@ -22,6 +22,7 @@ export async function executeOpenAiWithCredentialLease(
 
   if (
     provider !== "openai" ||
+    executor.getProvider() !== "openai" ||
     input.validationDispatch !== undefined ||
     !connectionId ||
     (typeof credentials.accessToken === "string" && credentials.accessToken.length > 0)
