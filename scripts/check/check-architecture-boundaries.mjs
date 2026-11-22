@@ -92,8 +92,43 @@ assert.ok(databaseCredentialAdapter.includes("getAccessToken"),
   "production credential adapter must preserve the OAuth refresh orchestrator");
 assert.ok(databaseCredentialAdapter.includes("updateProviderConnection"),
   "production credential adapter must persist rotated OAuth tokens through the existing write path");
-assert.ok(databaseCredentialAdapter.includes("requires a proxy"),
-  "OAuth refresh must fail closed when a required proxy cannot be resolved");
+assert.ok(databaseCredentialAdapter.includes("resolveProxy"),
+  "OAuth refresh must use the injected connection proxy resolver");
+assert.ok(databaseCredentialAdapter.includes("Resolution errors still propagate"),
+  "OAuth refresh must not silently bypass a failed proxy lookup");
+const instrumentation = await readFile(join(root, "src/instrumentation-node.ts"), "utf8");
+assert.ok(instrumentation.includes("configureCredentialResolutionPort"),
+  "server composition must install the production credential resolver");
+assert.ok(instrumentation.indexOf("await ensureDbReadyForBoot()") <
+  instrumentation.indexOf("configureCredentialResolutionPort"),
+  "credential resolver must be installed after database readiness");
+const credentialLeaseExecution = await readFile(
+  join(root, "open-sse/handlers/chatCore/credentialLeaseExecution.ts"),
+  "utf8",
+);
+const providerRequestExecution = await readFile(
+  join(root, "open-sse/handlers/chatCore/executeProviderRequest.ts"),
+  "utf8",
+);
+assert.ok(credentialLeaseExecution.includes("lease.withCredential"),
+  "OpenAI execution must consume secret material inside the lease callback");
+assert.ok(credentialLeaseExecution.includes('provider !== "openai"'),
+  "the first credential migration must remain scoped to the OpenAI executor");
+assert.equal(
+  providerRequestExecution.split("executeOpenAiWithCredentialLease(provider, executor, {").length - 1,
+  2,
+  "initial and stream-recovery sends must both use the same lease execution boundary",
+);
+const discoveryWorker = await readFile(
+  join(root, "src/lib/freeModelDiscovery/worker.ts"),
+  "utf8",
+);
+assert.ok(discoveryWorker.includes("https://openrouter.ai/api/v1/models"),
+  "free-model discovery must use the public OpenRouter model catalogue");
+assert.ok(discoveryWorker.includes("replaceCustomModels"),
+  "verified free models must be synchronized into the existing OpenRouter model catalogue");
+assert.ok(discoveryWorker.includes("requiresUserCredential: true"),
+  "discovered models must require the operator's own provider credential");
 
 assert.ok(manifestGenerator.includes(
   '@omniroute/contracts/provider-plugin-manifest',
