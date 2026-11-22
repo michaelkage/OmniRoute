@@ -29,7 +29,15 @@ export async function executeOpenAiWithCredentialLease(
     return executor.execute(input);
   }
 
-  const resolver = getCredentialResolutionPort();
+  let resolver: ReturnType<typeof getCredentialResolutionPort>;
+  try {
+    resolver = getCredentialResolutionPort();
+  } catch (error) {
+    // Unit tests and non-production tools do not run Next's Node instrumentation
+    // composition root. Production must never silently fall back to stale secrets.
+    if (process.env.NODE_ENV !== "production") return executor.execute(input);
+    throw error;
+  }
   const lease = await resolver.resolve({
     providerId: "openai",
     connectionId,
