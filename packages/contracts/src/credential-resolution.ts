@@ -1,48 +1,42 @@
 /**
  * Secret-safe credential resolution contracts.
  *
- * Credentials are never part of provider metadata or serializable contract objects.
- * Implementations keep secret material in a closure-backed lease and expose only
- * an operation that applies authorization to a request-local header sink.
+ * Credential material is only exposed inside a callback-scoped lease. It is not
+ * stored as a property on the lease, provider metadata, or a serializable DTO.
  */
-
 export type CredentialPurpose = "inference" | "validation";
-
 export type CredentialKind = "api-key" | "oauth" | "session" | "anonymous";
 
 export interface CredentialReference {
-  /** Canonical provider ID, never a display label or user-supplied URL. */
   readonly providerId: string;
-  /** Persisted connection identifier. Omit only for anonymous credentials. */
   readonly connectionId?: string;
-  /** Optional account selector for multi-account providers. */
   readonly accountId?: string;
   readonly kind: CredentialKind;
   readonly purpose: CredentialPurpose;
 }
 
-export interface CredentialHeaderWriter {
-  /** Set or replace one outbound request header. */
-  set(name: string, value: string): void;
-}
+export type CredentialMaterial =
+  | { readonly kind: "api-key"; readonly value: string; readonly keyId: string }
+  | {
+      readonly kind: "oauth";
+      readonly accessToken: string;
+      readonly tokenType?: string;
+      readonly refreshToken?: string;
+    };
+
+export type CredentialConsumer<T> = (credential: CredentialMaterial) => T | Promise<T>;
 
 export interface CredentialLease {
-  /** Optional expiry metadata; never contains credential material. */
   readonly expiresAt?: string;
   /**
-   * Apply authorization to a request-local header writer.
-   *
-   * Implementations must not return, log, persist, or attach secret material to
-   * the writer object. Callers must not serialize the resulting request headers.
+   * Use credential material inside a request-scoped callback.
+   * Consumers must not retain, log, persist, or serialize the supplied material.
+   * Provider-specific code remains responsible for constructing upstream headers.
    */
-  applyAuthorization(headers: CredentialHeaderWriter): void;
+  withCredential<T>(consumer: CredentialConsumer<T>): Promise<T>;
 }
 
 export interface CredentialResolutionPort {
-  /**
-   * Resolve an active credential lease for this request. Implementations own
-   * storage access, OAuth refresh coordination, API-key rotation and secret
-   * decryption. Return null when no usable credential exists.
-   */
+  /** Return null when the connection is missing, inactive, unsupported or unusable. */
   resolve(reference: CredentialReference): Promise<CredentialLease | null>;
 }
