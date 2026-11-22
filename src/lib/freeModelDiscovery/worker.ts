@@ -154,13 +154,15 @@ async function readOpenRouterCatalog(fetchFn: typeof fetch): Promise<unknown[]> 
   return (parsed as { data: unknown[] }).data;
 }
 
-function getSnapshotPath(): string {
-  const dataDir = process.env.DATA_DIR?.trim() || path.join(process.cwd(), "data");
-  return path.join(path.resolve(dataDir), "free-model-discovery.json");
+async function getSnapshotPath(): Promise<string> {
+  // Use the exact same resolved writable directory as SQLite and Neon backup
+  // tooling, including platform-specific defaults and operator overrides.
+  const { DATA_DIR } = await import("@/lib/db/core");
+  return path.join(DATA_DIR, "free-model-discovery.json");
 }
 
 async function persistSnapshot(snapshot: FreeModelDiscoverySnapshot): Promise<string> {
-  const destination = getSnapshotPath();
+  const destination = await getSnapshotPath();
   const directory = path.dirname(destination);
   await mkdir(directory, { recursive: true, mode: 0o700 });
 
