@@ -168,3 +168,34 @@ test("OpenAI provider proxy executors keep their dedicated authentication wrappe
     resetCredentialResolutionPort();
   }
 });
+
+test("production execution fails closed when credential resolver composition is missing", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  resetCredentialResolutionPort();
+  const input = {
+    model: "gpt-test",
+    body: {},
+    stream: false,
+    credentials: { connectionId: "connection-1", apiKey: "legacy-key" },
+  } as unknown as ExecuteInput;
+  let executeCalls = 0;
+  const executor = {
+    getProvider() { return "openai"; },
+    async execute() {
+      executeCalls++;
+      return { response: new Response("unexpected") };
+    },
+  } as unknown as BaseExecutor;
+
+  try {
+    await assert.rejects(
+      executeOpenAiWithCredentialLease("openai", executor, input),
+      /Credential resolution port has not been configured/,
+    );
+    assert.equal(executeCalls, 0);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
+});
