@@ -193,3 +193,24 @@ test("OAuth refresh policy can trigger a proactive refresh before expiry", async
     "proactively-refreshed-token",
   );
 });
+
+test("numeric epoch expiry strings are treated as expired instead of silently accepted", async () => {
+  const resolver = createDatabaseCredentialResolver({
+    loadConnection: async () =>
+      connection({
+        accessToken: "expired-token",
+        expiresAt: String(Date.now() - 10_000),
+      }),
+    selectApiKey: () => null,
+  });
+
+  assert.equal(
+    await resolver.resolve({
+      providerId: "openai",
+      connectionId: "connection-1",
+      kind: "oauth",
+      purpose: "inference",
+    }),
+    null,
+  );
+});
