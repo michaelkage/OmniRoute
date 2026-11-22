@@ -2090,3 +2090,21 @@ Used by `scripts/cli/omniroute-media-mcp.mjs`. Set these in the local tool proce
 | Variable | Default | Source File | Description |
 | --- | --- | --- | --- |
 | `OMNIROUTE_SESSION_TTL_MIN` | `15` | `open-sse/services/sessionManager.ts` | Idle TTL in minutes for the in-memory session map. Governs sticky connection reuse (`getSessionConnection`) and the active-sessions views; raising it keeps a session pinned to its connection longer. Read once at startup. Blank, non-numeric or `<= 0` values fall back to the default. |
+
+
+## Free-model discovery
+
+The Node server periodically queries OpenRouter's public model catalogue and indexes
+models whose prompt and completion prices are explicitly zero. The worker synchronizes
+these models into the existing `openrouter` custom-model list and writes a private
+snapshot to `DATA_DIR/free-model-discovery.json`.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OMNIROUTE_FREE_MODEL_DISCOVERY_ENABLED` | enabled | Set to `0` to disable the background worker |
+| `OMNIROUTE_FREE_MODEL_DISCOVERY_INTERVAL_MS` | `21600000` | Refresh interval; values below one hour are ignored and values above 24 hours are capped |
+
+Run a one-off refresh with `npm run models:discover`. Discovered models still require
+an OpenRouter connection authenticated with an API key supplied by the operator.
+The worker reads public model metadata only; it never searches for, imports, or stores
+API keys or other credentials. It does not create new provider executors.
