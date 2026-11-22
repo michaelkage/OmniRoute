@@ -1,4 +1,4 @@
-import { runFreeModelDiscovery } from "./worker";
+import { runFreeModelDiscovery } from "./worker.ts";
 
 const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let interval: ReturnType<typeof setInterval> | null = null;
