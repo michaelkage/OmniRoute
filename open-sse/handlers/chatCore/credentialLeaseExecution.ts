@@ -36,6 +36,9 @@ export async function executeOpenAiWithCredentialLease(
     connectionId,
     kind: "api-key",
     purpose: "inference",
+    ...(typeof credentials.providerSpecificData?.selectedKeyId === "string"
+      ? { selectedKeyId: credentials.providerSpecificData.selectedKeyId }
+      : {}),
   });
 
   // A null lease means the connection was deleted, disabled, mismatched, or
@@ -54,6 +57,10 @@ export async function executeOpenAiWithCredentialLease(
       extraApiKeys: [],
       selectedKeyId: material.keyId,
     };
+
+    // Keep the selected identity on the request-local parent credentials so stream
+    // recovery and retries retain the same key instead of rotating mid-request.
+    credentials.providerSpecificData = providerSpecificData;
 
     const leasedInput: ExecuteInput = {
       ...input,
