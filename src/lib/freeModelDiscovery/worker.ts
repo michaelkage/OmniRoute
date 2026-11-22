@@ -193,10 +193,44 @@ export async function discoverFreeModels(
   };
 }
 
+async function syncOpenRouterModelCatalog(
+  candidates: readonly FreeModelCandidate[],
+): Promise<void> {
+  if (candidates.length === 0) return;
+
+  const { getCustomModels, replaceCustomModels } = await import("@/lib/db/models");
+  const existing = await getCustomModels("openrouter");
+  const current = Array.isArray(existing) ? existing as Array<Record<string, unknown>> : [];
+  const operatorOwned = current.filter((model) => model.source !== "free-model-discovery");
+  const operatorOwnedIds = new Set(
+    operatorOwned
+      .map((model) => model.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+
+  const managed = candidates
+    .filter((candidate) => !operatorOwnedIds.has(candidate.id))
+    .map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      source: "free-model-discovery",
+      apiFormat: "chat-completions",
+      supportedEndpoints: ["chat"],
+      ...(candidate.contextLength
+        ? { inputTokenLimit: candidate.contextLength }
+        : {}),
+      ...(candidate.inputModalities.includes("image") ? { supportsVision: true } : {}),
+      isFree: true,
+    }));
+
+  await replaceCustomModels("openrouter", [...operatorOwned, ...managed]);
+}
+
 export async function runFreeModelDiscovery(
   options: { fetchFn?: typeof fetch; now?: () => Date } = {},
 ): Promise<{ snapshot: FreeModelDiscoverySnapshot; path: string }> {
   const snapshot = await discoverFreeModels(options);
+  await syncOpenRouterModelCatalog(snapshot.models);
   const destination = await persistSnapshot(snapshot);
   return { snapshot, path: destination };
 }
