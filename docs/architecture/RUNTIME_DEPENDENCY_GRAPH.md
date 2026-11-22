@@ -181,8 +181,10 @@ the selected API key to the existing `DefaultExecutor`, so the existing provider
 builder continues to create the same Bearer authorization header. The request-local
 selected key ID is retained across retries; the cloned executor credentials suppress a
 second key rotation, while the parent request metadata keeps the full extra-key list for
-failure accounting. Other providers and OAuth executor paths remain unchanged until
-their individual auth contracts are migrated.
+failure accounting. The wrapper checks the resolved executor identity, so CLIProxyAPI
+and Dario proxy executors plus strict-validation dispatches retain their existing auth
+paths. Other providers and OAuth executor paths remain unchanged until their individual
+auth contracts are migrated.
 
 ## Free-model discovery boundary
 
