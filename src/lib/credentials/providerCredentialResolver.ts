@@ -31,6 +31,7 @@ export interface CredentialResolverDependencies {
   loadConnection(connectionId: string): Promise<StoredProviderConnection | null>;
   selectApiKey(
     connection: StoredProviderConnection,
+    reference: CredentialReference,
   ): SelectedApiKey | null | Promise<SelectedApiKey | null>;
   shouldRefreshOAuth?(
     connection: StoredProviderConnection,
@@ -93,7 +94,7 @@ export function createDatabaseCredentialResolver(
       }
 
       if (reference.kind === "api-key") {
-        const selected = await dependencies.selectApiKey(connection);
+        const selected = await dependencies.selectApiKey(connection, reference);
         if (!selected?.key || !selected.keyId) return null;
         return createLease(
           { kind: "api-key", value: selected.key, keyId: selected.keyId },
@@ -142,8 +143,9 @@ export function createDatabaseCredentialResolver(
 
 export interface ProductionCredentialResolverOptions {
   /**
-   * Resolve the configured proxy for a connection. Required for OAuth refresh
-   * when the connection has proxyEnabled=true; returning null fails closed.
+   * Resolve the configured proxy through OmniRoute's existing scope cascade.
+   * A null result is a legitimate direct-egress configuration; resolver errors
+   * propagate and prevent an unsafe direct retry.
    */
   resolveProxy?(connection: StoredProviderConnection): Promise<unknown>;
   logger?: {
@@ -167,7 +169,7 @@ export function createProductionCredentialResolver(
       return (await getProviderConnectionById(connectionId)) as StoredProviderConnection | null;
     },
 
-    async selectApiKey(connection) {
+    async selectApiKey(connection, reference) {
       const providerData = connection.providerSpecificData ?? {};
       const health =
         providerData.apiKeyHealth && typeof providerData.apiKeyHealth === "object"
@@ -184,11 +186,13 @@ export function createProductionCredentialResolver(
       const primary = typeof connection.apiKey === "string" ? connection.apiKey : "";
       if (!primary && extras.length === 0) return null;
 
-      const { getValidApiKey, syncHealthFromDB } = await import(
+      const { getValidApiKey, resolveKeyForRequest, syncHealthFromDB } = await import(
         "../../../open-sse/services/apiKeyRotator.ts"
       );
       syncHealthFromDB(connection.id, health);
-      return getValidApiKey(connection.id, primary, extras, health);
+      return reference.selectedKeyId
+        ? resolveKeyForRequest(connection.id, primary, extras, reference.selectedKeyId)
+        : getValidApiKey(connection.id, primary, extras, health);
     },
 
     async shouldRefreshOAuth(connection) {
