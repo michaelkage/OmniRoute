@@ -46,7 +46,7 @@ function isCredentialKind(value: CredentialKind): boolean {
 
 function isExpiryDue(value: string): boolean {
   const trimmed = value.trim();
-  const numeric = /^\\d+(\\.\\d+)?$/.test(trimmed) ? Number(trimmed) : null;
+  const numeric = /^\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : null;
   const expiryMs =
     numeric !== null
       ? numeric > 0 && numeric < 1e12
