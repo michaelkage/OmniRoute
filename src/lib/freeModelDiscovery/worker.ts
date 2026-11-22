@@ -238,9 +238,6 @@ async function syncOpenRouterModelCatalog(
       source: "free-model-discovery",
       apiFormat: "chat-completions",
       supportedEndpoints: ["chat"],
-      ...(candidate.contextLength
-        ? { inputTokenLimit: candidate.contextLength }
-        : {}),
       ...(candidate.inputModalities.includes("image") ? { supportsVision: true } : {}),
       isFree: true,
     }));
