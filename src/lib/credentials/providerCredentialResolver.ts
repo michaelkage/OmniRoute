@@ -44,6 +44,18 @@ function isCredentialKind(value: CredentialKind): boolean {
   return value === "api-key" || value === "oauth";
 }
 
+function isExpiryDue(value: string): boolean {
+  const trimmed = value.trim();
+  const numeric = /^\\d+(\\.\\d+)?$/.test(trimmed) ? Number(trimmed) : null;
+  const expiryMs =
+    numeric !== null
+      ? numeric > 0 && numeric < 1e12
+        ? numeric * 1000
+        : numeric
+      : Date.parse(trimmed);
+  return !Number.isFinite(expiryMs) || expiryMs <= Date.now();
+}
+
 function createLease(
   material: CredentialMaterial,
   expiresAt?: string | null,
@@ -95,7 +107,7 @@ export function createDatabaseCredentialResolver(
           !!expiry &&
           (dependencies.shouldRefreshOAuth
             ? await dependencies.shouldRefreshOAuth(connection)
-            : Date.parse(expiry) <= Date.now())
+            : isExpiryDue(expiry))
         );
         if (shouldRefresh) {
           if (!dependencies.refreshOAuth) return null;
