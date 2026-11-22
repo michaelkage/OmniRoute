@@ -217,14 +217,11 @@ export function createProductionCredentialResolver(
           return null;
         }
         proxy = await options.resolveProxy(connection);
-        if (!proxy) {
-          options.logger?.error?.(
-            "CREDENTIAL_RESOLUTION",
-            "OAuth refresh blocked because the connection requires a proxy but none resolved",
-            { provider: connection.provider, connectionId: connection.id },
-          );
-          return null;
-        }
+        // A null proxy is a valid result from OmniRoute's resolver: it means
+        // the global proxy switch is off, the connection explicitly bypasses
+        // proxies, or no proxy is configured at any applicable scope. Resolution
+        // errors still propagate, so a broken proxy lookup never silently falls
+        // back to direct egress.
       }
 
       const refreshed = await getAccessToken(
