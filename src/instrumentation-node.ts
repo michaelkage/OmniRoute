@@ -620,6 +620,33 @@ export async function registerNodejs(): Promise<void> {
   await ensureDbReadyForBoot();
   startNeonPersistence();
 
+  // Register the database-backed credential resolver only after SQLite has
+  // completed boot initialization. OAuth refresh reuses the exact same
+  // connection proxy cascade as inference and quota fetches.
+  const [
+    { createProductionCredentialResolver },
+    { configureCredentialResolutionPort },
+  ] = await Promise.all([
+    import("@/lib/credentials/providerCredentialResolver"),
+    import("@omniroute/open-sse/services/credentialResolution.ts"),
+  ]);
+  configureCredentialResolutionPort(
+    createProductionCredentialResolver({
+      resolveProxy: async (connection) => {
+        const { resolveProxyForConnection } = await import("@/lib/db/settings");
+        const resolved = await resolveProxyForConnection(
+          connection.id,
+          undefined,
+          connection.provider,
+        );
+        return resolved?.proxy ?? null;
+      },
+      logger: console,
+    }),
+  );
+  console.log("[STARTUP] Database-backed credential resolution registered");
+
+
   await ensureSecrets();
   await Promise.all([
     import("@/lib/env/runtimeEnv").then(({ enforceWebRuntimeEnv }) => enforceWebRuntimeEnv()),
