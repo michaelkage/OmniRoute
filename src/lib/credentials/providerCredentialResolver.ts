@@ -27,7 +27,9 @@ export interface SelectedApiKey {
 
 export interface CredentialResolverDependencies {
   loadConnection(connectionId: string): Promise<StoredProviderConnection | null>;
-  selectApiKey(connection: StoredProviderConnection): SelectedApiKey | null;
+  selectApiKey(
+    connection: StoredProviderConnection,
+  ): SelectedApiKey | null | Promise<SelectedApiKey | null>;
   refreshOAuth?(
     connection: StoredProviderConnection,
   ): Promise<StoredProviderConnection | null>;
@@ -74,7 +76,7 @@ export function createDatabaseCredentialResolver(
       }
 
       if (reference.kind === "api-key") {
-        const selected = dependencies.selectApiKey(connection);
+        const selected = await dependencies.selectApiKey(connection);
         if (!selected?.key || !selected.keyId) return null;
         return createLease(
           { kind: "api-key", value: selected.key, keyId: selected.keyId },
@@ -142,11 +144,14 @@ export function createProductionCredentialResolver(
       return (await getProviderConnectionById(connectionId)) as StoredProviderConnection | null;
     },
 
-    selectApiKey(connection) {
+    async selectApiKey(connection) {
       const providerData = connection.providerSpecificData ?? {};
       const health =
         providerData.apiKeyHealth && typeof providerData.apiKeyHealth === "object"
-          ? (providerData.apiKeyHealth as Record<string, import("../../../open-sse/services/apiKeyRotator.ts").KeyHealth>)
+          ? (providerData.apiKeyHealth as Record<
+              string,
+              import("../../../open-sse/services/apiKeyRotator.ts").KeyHealth
+            >)
           : undefined;
       const extras = Array.isArray(providerData.extraApiKeys)
         ? providerData.extraApiKeys.filter(
@@ -156,11 +161,11 @@ export function createProductionCredentialResolver(
       const primary = typeof connection.apiKey === "string" ? connection.apiKey : "";
       if (!primary && extras.length === 0) return null;
 
-      // Rotation health is hydrated from the decrypted DB snapshot on first use.
-      return import("../../../open-sse/services/apiKeyRotator.ts").then(({ getValidApiKey, syncHealthFromDB }) => {
-        syncHealthFromDB(connection.id, health);
-        return getValidApiKey(connection.id, primary, extras, health);
-      }) as unknown as SelectedApiKey | null;
+      const { getValidApiKey, syncHealthFromDB } = await import(
+        "../../../open-sse/services/apiKeyRotator.ts"
+      );
+      syncHealthFromDB(connection.id, health);
+      return getValidApiKey(connection.id, primary, extras, health);
     },
 
     async refreshOAuth(connection) {
