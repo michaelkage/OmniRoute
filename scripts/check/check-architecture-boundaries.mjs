@@ -114,7 +114,7 @@ assert.ok(credentialLeaseExecution.includes("lease.withCredential"),
   "OpenAI execution must consume secret material inside the lease callback");
 assert.ok(credentialLeaseExecution.includes('provider !== "openai"'),
   "the first credential migration must remain scoped to the OpenAI executor");
-assert.ok(credentialLeaseExecution.includes('executor.getProvider() !== "openai"'),
+assert.ok(credentialLeaseExecution.includes('executorProvider !== "openai"'),
   "provider-level proxy wrappers must retain their dedicated authentication paths");
 assert.equal(
   providerRequestExecution.split("executeOpenAiWithCredentialLease(provider, executor, {").length - 1,
