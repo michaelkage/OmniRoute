@@ -38,6 +38,7 @@ test("OpenAI API-key execution consumes a callback-scoped lease and preserves se
     } as unknown as ExecuteInput;
     const expected = { response: new Response("ok") };
     const executor = {
+      getProvider() { return "openai"; },
       async execute(next: ExecuteInput) {
         received = next;
         return expected;
@@ -99,6 +100,7 @@ test("strict validation dispatch keeps the existing credential guard and bypasse
   } as unknown as ExecuteInput;
   let received: ExecuteInput | null = null;
   const executor = {
+    getProvider() { return "openai"; },
     async execute(next: ExecuteInput) {
       received = next;
       return { response: new Response("ok") };
@@ -121,6 +123,7 @@ test("unconfigured non-production test runtimes preserve the legacy execution pa
   } as unknown as ExecuteInput;
   let received: ExecuteInput | null = null;
   const executor = {
+    getProvider() { return "openai"; },
     async execute(next: ExecuteInput) {
       received = next;
       return { response: new Response("ok") };
