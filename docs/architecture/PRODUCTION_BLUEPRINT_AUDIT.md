@@ -78,11 +78,18 @@ Milestones 1 and 2 have an initial implementation slice on
   credentials, OAuth secrets, headers, URL builders and session-pool internals.
 - Added focused unit coverage for provider lookup, model lookup, sensitive-field
   exclusion and adapter replacement/restoration. Tests have been authored but not run.
-- Added a secret-safe `CredentialResolutionPort` and closure-backed credential lease.
-  The public contract accepts non-secret provider/connection/account references and
-  exposes only an authorization-application operation, never raw key/token fields.
-- Added a fail-closed resolver injection seam in `open-sse`, with tests for missing
-  configuration, lease application, restoration ordering and missing credentials.
+- Added a secret-safe `CredentialResolutionPort` with callback-scoped credential
+  leases. Secret values are not properties on the lease or provider metadata.
+- Added a database-backed adapter factory that reads through the existing
+  lazy-decrypting connection store, delegates API-key selection to the existing
+  health-aware rotator, and delegates OAuth refresh to the existing serialized refresh
+  orchestrator with the existing transactional update path.
+- The production adapter requires an injected proxy resolver for proxy-enabled OAuth
+  connections and fails closed if it cannot resolve one. It is not yet installed in the
+  application composition root, and request-path consumers have not been migrated.
+- Added tests for the resolver seam and database adapter's API-key, OAuth refresh,
+  missing-connection, inactive-connection and provider-mismatch behavior. Tests are
+  authored but have not been executed.
 - Added the versioned JSON Schema
   `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
 - Added AJV 2020-12 tests that validate generated manifests and reject unknown
