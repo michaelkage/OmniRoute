@@ -58,6 +58,7 @@ function finiteNumber(value: unknown): number | null {
 }
 
 function isFreePrice(value: unknown): boolean {
+  if (typeof value === "string" && !value.trim()) return false;
   if (typeof value !== "string" && typeof value !== "number") return false;
   const price = Number(value);
   return Number.isFinite(price) && price === 0;
@@ -76,7 +77,9 @@ function isSafeModelId(value: unknown): value is string {
     /^[A-Za-z0-9][A-Za-z0-9._:/+-]*$/.test(value);
 }
 
-function toCandidate(model: OpenRouterModel, discoveredAt: string): FreeModelCandidate | null {
+function toCandidate(value: unknown, discoveredAt: string): FreeModelCandidate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const model = value as OpenRouterModel;
   if (!isSafeModelId(model.id)) return null;
   if (!isFreePrice(model.pricing?.prompt) || !isFreePrice(model.pricing?.completion)) return null;
 
@@ -102,7 +105,7 @@ function toCandidate(model: OpenRouterModel, discoveredAt: string): FreeModelCan
   };
 }
 
-async function readOpenRouterCatalog(fetchFn: typeof fetch): Promise<OpenRouterModel[]> {
+async function readOpenRouterCatalog(fetchFn: typeof fetch): Promise<unknown[]> {
   const response = await fetchFn(OPENROUTER_MODELS_URL, {
     method: "GET",
     headers: { accept: "application/json", "user-agent": "OmniRoute-FreeModelDiscovery/1.0" },
@@ -148,7 +151,7 @@ async function readOpenRouterCatalog(fetchFn: typeof fetch): Promise<OpenRouterM
   if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { data?: unknown }).data)) {
     throw new Error("OpenRouter catalog response did not contain a model list");
   }
-  return (parsed as { data: OpenRouterModel[] }).data;
+  return (parsed as { data: unknown[] }).data;
 }
 
 function getSnapshotPath(): string {
