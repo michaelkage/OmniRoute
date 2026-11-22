@@ -215,8 +215,6 @@ export async function discoverFreeModels(
 async function syncOpenRouterModelCatalog(
   candidates: readonly FreeModelCandidate[],
 ): Promise<void> {
-  if (candidates.length === 0) return;
-
   const { getCustomModels, replaceCustomModels } = await import("@/lib/db/models");
   type CustomModelInput = Parameters<typeof replaceCustomModels>[1][number];
   const existing = await getCustomModels("openrouter");
@@ -250,6 +248,7 @@ async function syncOpenRouterModelCatalog(
   await replaceCustomModels(
     "openrouter",
     [...operatorOwned, ...managed] as CustomModelInput[],
+    { allowEmpty: true },
   );
 }
 
