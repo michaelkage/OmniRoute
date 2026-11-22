@@ -84,12 +84,28 @@ Milestones 1 and 2 have an initial implementation slice on
   lazy-decrypting connection store, delegates API-key selection to the existing
   health-aware rotator, and delegates OAuth refresh to the existing serialized refresh
   orchestrator with the existing transactional update path.
-- The production adapter requires an injected proxy resolver for proxy-enabled OAuth
-  connections and fails closed if it cannot resolve one. It is not yet installed in the
-  application composition root, and request-path consumers have not been migrated.
-- Added tests for the resolver seam and database adapter's API-key, OAuth refresh,
-  missing-connection, inactive-connection and provider-mismatch behavior. Tests are
-  authored but have not been executed.
+- Installed the production credential resolver in the Node server composition
+  immediately after SQLite boot readiness. OAuth refresh now calls the existing
+  `resolveProxyForConnection(connectionId, apiKeyId, providerId)` scope cascade.
+  A configured direct-egress result remains direct, matching existing OmniRoute policy;
+  proxy-resolution errors propagate and cannot silently downgrade to direct egress.
+- Migrated the canonical OpenAI API-key execution path to callback-scoped credential
+  leases for both initial sends and stream-recovery sends. The lease selects a healthy
+  key from the database-backed connection, retains the selected key identity across
+  retries, and passes the selected value through the existing OpenAI executor header
+  builder. The executor still emits its original `Authorization: Bearer` header.
+  Other providers and OAuth executor paths remain on their existing credential flow.
+- Added a public free-model discovery worker using OpenRouter's public model catalogue.
+  It only indexes models whose input and output prices are both explicitly zero,
+  synchronizes them into the existing `openrouter` custom-model catalogue, preserves
+  operator-owned model entries, and writes a private atomic snapshot under `DATA_DIR`.
+  The worker is scheduled every six hours by default and can be disabled with
+  `OMNIROUTE_FREE_MODEL_DISCOVERY_ENABLED=0`. Discovered models require an operator-
+  configured OpenRouter connection; the worker never harvests, imports, or stores API
+  keys and never invents new provider executors or endpoints.
+- Added `npm run models:discover` for a manual discovery pass.
+- Added tests for the resolver seam, database adapter, OpenAI lease execution, and
+  discovery metadata validation. Tests are authored but have not been executed.
 - Added the versioned JSON Schema
   `packages/contracts/schemas/provider-plugin-manifest.v1.schema.json`.
 - Added AJV 2020-12 tests that validate generated manifests and reject unknown
