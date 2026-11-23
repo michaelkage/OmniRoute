@@ -1,7 +1,7 @@
 ---
 title: "Production Blueprint Audit"
 version: 4.0.0-planning
-lastUpdated: 2026-11-22
+lastUpdated: 2026-11-23
 ---
 
 # Production blueprint audit
@@ -60,7 +60,7 @@ merge these feature changes into the v3 validation or future v3 LTS line.
 | 15 | Modular Extension Marketplace | Partial | Build a trusted registry, signed artifacts, mandatory integrity verification, compatibility resolution, rollback and sandboxed installation |
 | 16 | Runtime Profiles and Modular Distribution | Partial | Formalize minimal/server/CLI/desktop profiles and publish versioned core, SDK and module artifacts with compatibility guarantees |
 
-## V4 staging progress — 2026-11-22
+## V4 staging progress — 2026-11-23
 
 Milestones 1 and 2 have an initial implementation slice on
 `feature/v4-production-blueprint-neon-latest`:
@@ -122,8 +122,8 @@ Milestones 1 and 2 have an initial implementation slice on
 - Added `npm run check:architecture-boundaries` to guard the contracts package as a
   dependency leaf and verify workspace/alias wiring.
 - Added `npm run test:v4-foundation`, a serial, focused suite covering credential
-  leases, resolver behavior, provider-catalog isolation, free-model discovery, Neon
-  persistence helpers and provider-manifest validation.
+  leases, resolver behavior, provider-catalog isolation, free-model discovery and its
+  transactional reconciliation, Neon persistence helpers and provider-manifest validation.
 - Added `.github/workflows/v4-foundation.yml` on the v4 staging branch. Every push
   runs the contracts typecheck, architecture-boundary audit and focused foundation
   suite using the repository's pinned CI install action. The workflow is configured;
