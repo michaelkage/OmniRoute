@@ -369,25 +369,36 @@ export function syncDiscoveredCustomModels(
   providerId: string,
   discoveredModels: readonly DiscoveredCustomModelInput[],
 ): { changed: boolean; models: JsonRecord[] } {
-  if (!providerId.trim()) throw new Error("A provider ID is required");
+  if (!providerId.trim() || providerId !== providerId.trim()) {
+    throw new Error("A normalized provider ID is required");
+  }
   const candidates = new Map<string, DiscoveredCustomModelInput>();
   for (const model of discoveredModels) {
     if (
       !model ||
       typeof model.id !== "string" ||
-      !model.id.trim() ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$/.test(model.id.trim()) ||
       typeof model.name !== "string" ||
       model.source !== "free-model-discovery" ||
+      typeof model.apiFormat !== "string" ||
+      !model.apiFormat.trim() ||
       model.isFree !== true ||
       !Array.isArray(model.supportedEndpoints) ||
+      model.supportedEndpoints.length === 0 ||
+      model.supportedEndpoints.length > 16 ||
+      !model.supportedEndpoints.every((endpoint) =>
+        typeof endpoint === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(endpoint)
+      ) ||
       typeof model.supportsVision !== "boolean"
     ) {
       throw new Error("Invalid discovered custom model metadata");
     }
-    candidates.set(model.id, {
+    const id = model.id.trim();
+    candidates.set(id, {
       ...model,
-      id: model.id.trim(),
-      name: model.name.trim() || model.id.trim(),
+      id,
+      name: model.name.trim().slice(0, 256) || id,
+      apiFormat: model.apiFormat.trim(),
       supportedEndpoints: [...new Set(model.supportedEndpoints)],
     });
   }
