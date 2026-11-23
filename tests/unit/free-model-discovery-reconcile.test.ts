@@ -13,6 +13,9 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 
 test.beforeEach(() => {
   core.resetDbInstance();
+  core.getDbInstance()
+    .prepare("DELETE FROM key_value WHERE namespace = 'customModels' AND key = ?")
+    .run("openrouter");
 });
 
 test.after(() => {
