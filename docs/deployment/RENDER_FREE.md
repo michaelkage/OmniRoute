@@ -36,6 +36,8 @@ The Blueprint generates `JWT_SECRET`, `API_KEY_SECRET`, and `INITIAL_PASSWORD`. 
 
 The service binds through OmniRoute's existing runtime port handling. Render supplies `PORT`; do not hard-code a different public port.
 
+Before deployment, you can validate the same required settings locally with `node scripts/check/render-free-preflight.mjs` after exporting the variables from `render.yaml`. The preflight never prints secret values.
+
 ## 3. First login and API security
 
 - Open the deployed service URL.
