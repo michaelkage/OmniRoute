@@ -7,7 +7,11 @@ const parsedInterval = Number(process.env.OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS ||
 const INTERVAL_MS = Number.isFinite(parsedInterval) && parsedInterval > 0
   ? Math.max(60_000, Math.floor(parsedInterval))
   : 300_000;
-const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
+const COMMAND_TIMEOUT_MS = 2 * 60 * 1000;
+const parsedHelperHeap = Number(process.env.OMNIROUTE_NEON_HELPER_MEMORY_MB || 96);
+const HELPER_HEAP_MB = Number.isSafeInteger(parsedHelperHeap)
+  ? Math.min(192, Math.max(64, parsedHelperHeap))
+  : 96;
 
 let timer: NodeJS.Timeout | undefined;
 let inFlight: Promise<void> | undefined;
@@ -36,7 +40,11 @@ function run(command: "restore" | "snapshot"): Promise<void> {
         return;
       }
 
-      const child = spawn(process.execPath, [helperPath(), command], {
+      const child = spawn(process.execPath, [
+        "--max-old-space-size=" + HELPER_HEAP_MB,
+        helperPath(),
+        command,
+      ], {
         env: {
           ...process.env,
           DATA_DIR: runtimePaths.dataDir,
