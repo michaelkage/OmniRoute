@@ -7,7 +7,9 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { pathToFileURL } from "node:url";
 
 const TABLE = "omniroute_sqlite_snapshots";
-const MAX_BUFFER = 1024 * 1024 * 1024;
+const HARD_MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024;
+const DEFAULT_MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024;
+const MAX_BUFFER = HARD_MAX_SNAPSHOT_BYTES * 2;
 
 export function parseRetention(value) {
   const parsed = Number(value);
@@ -19,6 +21,24 @@ export function parseInterval(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return 300000;
   return Math.max(60000, Math.floor(parsed));
+}
+
+export function parseMaxSnapshotBytes(value) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) return DEFAULT_MAX_SNAPSHOT_BYTES;
+  return Math.min(HARD_MAX_SNAPSHOT_BYTES, Math.max(1024 * 1024, parsed));
+}
+
+export function assertSnapshotSize(filePath, maxBytes = parseMaxSnapshotBytes(process.env.OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES)) {
+  const size = fs.statSync(filePath).size;
+  if (size > maxBytes) {
+    throw new Error(
+      "SQLite database is " + size + " bytes, exceeding the configured Neon snapshot limit of " +
+      maxBytes + " bytes. Snapshot was refused to protect the host memory budget; increase " +
+      "OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES only after measuring peak RSS, or use durable storage."
+    );
+  }
+  return size;
 }
 
 export function parsePostgresConnection(connectionString) {
@@ -66,6 +86,7 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR?.trim() || resolveDefaultData
 const SQLITE_FILE = path.join(DATA_DIR, "storage.sqlite");
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const RETENTION = parseRetention(process.env.OMNIROUTE_NEON_SNAPSHOT_RETENTION);
+const MAX_SNAPSHOT_BYTES = parseMaxSnapshotBytes(process.env.OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES);
 
 function command(name, args, options = {}) {
   const result = spawnSync(name, args, {
@@ -124,6 +145,7 @@ function createSqliteBackup() {
   try {
     command("sqlite3", [SQLITE_FILE, ".backup '" + temp.replaceAll("'", "''") + "'"]);
     fs.chmodSync(temp, 0o600);
+    assertSnapshotSize(temp, MAX_SNAPSHOT_BYTES);
     return temp;
   } catch (error) {
     fs.rmSync(temp, { force: true });
@@ -140,10 +162,16 @@ function snapshot() {
     temp = createSqliteBackup();
     const dump = command("sqlite3", [temp, ".dump"]);
     if (!dump.trim()) throw new Error("SQLite dump was empty; refusing to upload an empty snapshot.");
-    const payload = gzipSync(Buffer.from(dump, "utf8"), { level: 9 }).toString("base64");
+    if (Buffer.byteLength(dump, "utf8") > MAX_BUFFER) {
+      throw new Error("SQLite SQL dump exceeds the bounded snapshot buffer; refusing upload.");
+    }
+    const payload = gzipSync(Buffer.from(dump, "utf8"), { level: 6 }).toString("base64");
+    if (Buffer.byteLength(payload, "utf8") > MAX_BUFFER) {
+      throw new Error("Compressed SQLite snapshot exceeds the bounded upload buffer; refusing upload.");
+    }
     psql(["-c", "\\copy " + TABLE + "(payload) FROM STDIN"], payload + "\n");
     cleanupSnapshots();
-    console.log("[NEON] snapshot saved (" + Math.round(Buffer.byteLength(payload, "utf8") / 1024) + " KiB compressed payload)");
+    console.log("[NEON] snapshot saved (" + Math.round(Buffer.byteLength(payload, "utf8") / 1024) + " KiB compressed payload; SQLite limit " + MAX_SNAPSHOT_BYTES + " bytes)");
   } finally {
     if (temp) fs.rmSync(temp, { force: true });
   }
@@ -172,16 +200,20 @@ function restore() {
     console.log("[NEON] no Neon snapshot exists; allowing first-time SQLite initialization.");
     return false;
   }
+  if (Buffer.byteLength(payload, "utf8") > MAX_BUFFER) {
+    throw new Error("Stored Neon snapshot exceeds the bounded restore buffer; refusing to allocate it.");
+  }
   fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
   const stamp = process.pid + "-" + Date.now();
   const dumpFile = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sql");
   const tempDb = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sqlite");
   try {
-    const dump = gunzipSync(Buffer.from(payload, "base64"));
+    const dump = gunzipSync(Buffer.from(payload, "base64"), { maxOutputLength: MAX_BUFFER });
     fs.writeFileSync(dumpFile, dump, { mode: 0o600, flag: "wx" });
     command("sqlite3", [tempDb], { input: dump });
     const integrity = command("sqlite3", [tempDb, "PRAGMA integrity_check;"]).trim();
     if (integrity !== "ok") throw new Error("Restored SQLite integrity check failed: " + integrity.slice(0, 500));
+    assertSnapshotSize(tempDb, MAX_SNAPSHOT_BYTES);
     fs.chmodSync(tempDb, 0o600);
     fsyncFile(tempDb);
     try {
