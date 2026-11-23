@@ -85,6 +85,8 @@ npm run dev
 
 Open `http://localhost:20128` unless `PORT` is changed. To keep local data in the repository's ignored `data/` directory, set `DATA_DIR=./data`. The default data location is under the user's home directory.
 
+Use a supported Node.js release from the repository engine range: Node 22.22.2 (22.x) or Node 24.x/26.x. Use the committed `package-lock.json` with `npm ci`; do not use an unpinned install for reproducible local setup.
+
 To exercise PostgreSQL snapshot recovery locally, install the `sqlite3` and `psql` command-line tools, set `DATABASE_URL`, `OMNIROUTE_NEON_PERSISTENCE=1`, and run:
 
 ```bash
