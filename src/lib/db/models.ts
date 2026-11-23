@@ -346,6 +346,118 @@ export async function replaceCustomModels(
   return merged;
 }
 
+
+/**
+ * Atomically reconcile one machine-managed model source into customModels.
+ *
+ * Unlike a read-then-replace call from an asynchronous worker, this performs
+ * the read/merge/write in one synchronous SQLite transaction. Operator-owned
+ * rows always win ID collisions, and unrelated custom-model metadata survives
+ * refreshes for IDs that remain in the discovered catalogue.
+ */
+export interface DiscoveredCustomModelInput {
+  id: string;
+  name: string;
+  source: "free-model-discovery";
+  apiFormat: string;
+  supportedEndpoints: string[];
+  supportsVision: boolean;
+  isFree: true;
+}
+
+export function syncDiscoveredCustomModels(
+  providerId: string,
+  discoveredModels: readonly DiscoveredCustomModelInput[],
+): { changed: boolean; models: JsonRecord[] } {
+  if (!providerId.trim()) throw new Error("A provider ID is required");
+  const candidates = new Map<string, DiscoveredCustomModelInput>();
+  for (const model of discoveredModels) {
+    if (
+      !model ||
+      typeof model.id !== "string" ||
+      !model.id.trim() ||
+      typeof model.name !== "string" ||
+      model.source !== "free-model-discovery" ||
+      model.isFree !== true ||
+      !Array.isArray(model.supportedEndpoints) ||
+      typeof model.supportsVision !== "boolean"
+    ) {
+      throw new Error("Invalid discovered custom model metadata");
+    }
+    candidates.set(model.id, {
+      ...model,
+      id: model.id.trim(),
+      name: model.name.trim() || model.id.trim(),
+      supportedEndpoints: [...new Set(model.supportedEndpoints)],
+    });
+  }
+
+  const db = getDbInstance();
+  const reconcile = db.transaction(() => {
+    const row = db
+      .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
+      .get(providerId);
+    const raw = getKeyValue(row).value;
+    let existing: unknown = [];
+    if (raw !== null && raw !== undefined && raw !== "") {
+      try {
+        existing = JSON.parse(raw);
+      } catch {
+        throw new Error("Cannot reconcile discovered models: stored custom-model JSON is malformed");
+      }
+    }
+    if (!Array.isArray(existing)) {
+      throw new Error("Cannot reconcile discovered models: stored custom-model catalogue is not an array");
+    }
+    if (existing.some((model) =>
+      !model || typeof model !== "object" || Array.isArray(model) ||
+      typeof (model as JsonRecord).id !== "string"
+    )) {
+      throw new Error("Cannot reconcile discovered models: stored custom-model row is malformed");
+    }
+
+    const rows = existing as JsonRecord[];
+    const operatorOwned = rows.filter((model) => model.source !== "free-model-discovery");
+    const operatorIds = new Set(operatorOwned.map((model) => model.id as string));
+    const existingManaged = new Map(
+      rows
+        .filter((model) => model.source === "free-model-discovery")
+        .map((model) => [model.id as string, model]),
+    );
+
+    const managed = [...candidates.values()]
+      .filter((model) => !operatorIds.has(model.id))
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((model) => ({
+        ...(existingManaged.get(model.id) ?? {}),
+        ...model,
+        id: model.id,
+      }) as JsonRecord);
+    const next = [...operatorOwned, ...managed];
+
+    if (JSON.stringify(rows) === JSON.stringify(next)) {
+      return { changed: false, models: rows };
+    }
+
+    if (next.length === 0) {
+      db.prepare("DELETE FROM key_value WHERE namespace = 'customModels' AND key = ?")
+        .run(providerId);
+    } else {
+      db.prepare(
+        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('customModels', ?, ?)",
+      ).run(providerId, JSON.stringify(next));
+    }
+    return { changed: true, models: next };
+  });
+
+  const result = reconcile();
+  if (result.changed) {
+    finishModelCatalogWriteWithBackup();
+    notifyQuotaCombosForProvider(providerId);
+  }
+  return result;
+}
+
 /**
  * Remove provider-level models created by discovery/import while preserving
  * models the user added manually. Returns the removed model IDs.
