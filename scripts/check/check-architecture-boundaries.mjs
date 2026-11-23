@@ -127,8 +127,8 @@ const discoveryWorker = await readFile(
 );
 assert.ok(discoveryWorker.includes("https://openrouter.ai/api/v1/models"),
   "free-model discovery must use the public OpenRouter model catalogue");
-assert.ok(discoveryWorker.includes("replaceCustomModels"),
-  "verified free models must be synchronized into the existing OpenRouter model catalogue");
+assert.ok(discoveryWorker.includes("syncDiscoveredCustomModels"),
+  "verified free models must use the atomic OpenRouter model-catalogue reconciler");
 assert.ok(discoveryWorker.includes("requiresUserCredential: true"),
   "discovered models must require the operator's own provider credential");
 const modelDatabase = await readFile(join(root, "src/lib/db/models.ts"), "utf8");
