@@ -350,8 +350,7 @@
     "typecheck:contracts": "tsc --project packages/contracts/tsconfig.json",
     "check:architecture-boundaries": "node scripts/check/check-architecture-boundaries.mjs && node scripts/check/audit-architecture-graph.mjs",
     "audit:architecture": "node scripts/check/audit-architecture-graph.mjs",
-    "test:v4-foundation": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=4096 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/unit/credential-lease-execution.test.ts tests/unit/credential-resolution-port.test.ts tests/unit/free-model-discovery-worker.test.ts tests/unit/free-model-discovery-reconcile.test.ts tests/unit/neon-persistence.test.mjs tests/unit/provider-catalog-port.test.ts tests/unit/provider-credential-resolver.test.ts tests/unit/provider-plugin-manifest.test.ts",
-    "check:render-free": "node scripts/check/render-free-preflight.mjs"
+    "test:v4-foundation": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=4096 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/unit/credential-lease-execution.test.ts tests/unit/credential-resolution-port.test.ts tests/unit/free-model-discovery-worker.test.ts tests/unit/free-model-discovery-reconcile.test.ts tests/unit/neon-persistence.test.mjs tests/unit/provider-catalog-port.test.ts tests/unit/provider-credential-resolver.test.ts tests/unit/provider-plugin-manifest.test.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
