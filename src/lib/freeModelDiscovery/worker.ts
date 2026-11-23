@@ -244,52 +244,18 @@ export async function discoverFreeModels(
 async function syncOpenRouterModelCatalog(
   candidates: readonly FreeModelCandidate[],
 ): Promise<void> {
-  const { getCustomModels, replaceCustomModels } = await import("@/lib/db/models");
-  type CustomModelInput = Parameters<typeof replaceCustomModels>[1][number];
-  const existing = await getCustomModels("openrouter");
-  const current = Array.isArray(existing)
-    ? existing as Array<CustomModelInput & { supportsVision?: boolean }>
-    : [];
-  const operatorOwned = current.filter((model) =>
-    typeof model.id === "string" && model.source !== "free-model-discovery"
-  );
-  const operatorOwnedIds = new Set(
-    operatorOwned
-      .map((model) => model.id)
-      .filter((id): id is string => typeof id === "string"),
-  );
-
-  const managed = candidates
-    .filter((candidate) => !operatorOwnedIds.has(candidate.id))
-    .map((candidate) => ({
+  const { syncDiscoveredCustomModels } = await import("@/lib/db/models");
+  syncDiscoveredCustomModels(
+    "openrouter",
+    candidates.map((candidate) => ({
       id: candidate.id,
       name: candidate.name,
-      source: "free-model-discovery",
+      source: "free-model-discovery" as const,
       apiFormat: "chat-completions",
       supportedEndpoints: ["chat"],
       supportsVision: candidate.inputModalities.includes("image"),
-      isFree: true,
-    }));
-
-  const existingManaged = current
-    .filter((model) => model.source === "free-model-discovery")
-    .map((model) => ({
-      id: model.id,
-      name: model.name ?? model.id,
-      source: model.source,
-      apiFormat: model.apiFormat ?? "chat-completions",
-      supportedEndpoints: model.supportedEndpoints ?? ["chat"],
-      supportsVision: model.supportsVision === true,
-      isFree: model.isFree === true,
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  const desiredManaged = [...managed].sort((a, b) => a.id.localeCompare(b.id));
-  if (JSON.stringify(existingManaged) === JSON.stringify(desiredManaged)) return;
-
-  await replaceCustomModels(
-    "openrouter",
-    [...operatorOwned, ...managed] as CustomModelInput[],
-    { allowEmpty: true },
+      isFree: true as const,
+    })),
   );
 }
 
