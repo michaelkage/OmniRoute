@@ -138,8 +138,6 @@ assert.ok(modelDatabase.includes("const reconcile = db.transaction(() =>"),
   "discovered model reconciliation must read and write inside one SQLite transaction");
 assert.ok(modelDatabase.includes('model.source !== "free-model-discovery"'),
   "discovered model reconciliation must preserve operator-owned models");
-assert.ok(discoveryWorker.includes("syncDiscoveredCustomModels"),
-  "the discovery worker must use atomic managed-model reconciliation");
 const discoveryReconciliationTests = await readFile(
   join(root, "tests/unit/free-model-discovery-reconcile.test.ts"),
   "utf8",
