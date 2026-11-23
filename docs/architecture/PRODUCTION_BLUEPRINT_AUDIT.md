@@ -105,6 +105,13 @@ Milestones 1 and 2 have an initial implementation slice on
   `OMNIROUTE_FREE_MODEL_DISCOVERY_ENABLED=0`. Discovered models require an operator-
   configured OpenRouter connection; the worker never harvests, imports, or stores API
   keys and never invents new provider executors or endpoints.
+- Hardened free-model catalogue reconciliation with a dedicated synchronous
+  SQLite transaction. Operator-owned models win same-ID collisions, stale
+  discovery-managed rows are removed without deleting operator entries, repeated
+  identical catalogues do not trigger writes/backups, and malformed persisted state
+  aborts reconciliation instead of replacing it. Added regression coverage for
+  collision precedence, stale-row cleanup, idempotency, metadata refresh and
+  fail-closed handling.
 - Added `npm run models:discover` for a manual discovery pass.
 - Added tests for the resolver seam, database adapter, OpenAI lease execution, and
   discovery metadata validation. Tests are authored but have not been executed.
