@@ -112,6 +112,9 @@ Milestones 1 and 2 have an initial implementation slice on
   aborts reconciliation instead of replacing it. Added regression coverage for
   collision precedence, stale-row cleanup, idempotency, metadata refresh and
   fail-closed handling.
+- Wired the discovery scheduler into graceful shutdown: its timer is cancelled and
+  any active catalogue fetch/reconciliation is awaited before the final Neon snapshot
+  and SQLite close, preventing a background model write from racing database teardown.
 - Added `npm run models:discover` for a manual discovery pass.
 - Added tests for the resolver seam, database adapter, OpenAI lease execution, and
   discovery metadata validation. Tests are authored but have not been executed.
