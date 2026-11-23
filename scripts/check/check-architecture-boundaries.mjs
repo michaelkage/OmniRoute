@@ -146,6 +146,15 @@ assert.ok(discoveryReconciliationTests.includes("wins ID collisions"),
   "discovery reconciliation must test operator-owned ID collision precedence");
 assert.ok(discoveryReconciliationTests.includes("malformed persisted catalogues"),
   "discovery reconciliation must fail closed on malformed persisted state");
+const discoveryScheduler = await readFile(
+  join(root, "src/lib/freeModelDiscovery/scheduler.ts"),
+  "utf8",
+);
+assert.ok(discoveryScheduler.includes("if (activeRun) await activeRun"),
+  "discovery scheduler shutdown must await any in-flight catalogue write");
+const gracefulShutdown = await readFile(join(root, "src/lib/gracefulShutdown.ts"), "utf8");
+assert.ok(gracefulShutdown.includes("await stopFreeModelDiscoveryScheduler()"),
+  "graceful shutdown must drain discovery before closing SQLite");
 assert.ok(rootPackage.files.includes("scripts/discovery/"),
   "the manual discovery command must be included in published packages");
 
