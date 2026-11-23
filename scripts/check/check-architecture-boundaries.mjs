@@ -131,6 +131,23 @@ assert.ok(discoveryWorker.includes("replaceCustomModels"),
   "verified free models must be synchronized into the existing OpenRouter model catalogue");
 assert.ok(discoveryWorker.includes("requiresUserCredential: true"),
   "discovered models must require the operator's own provider credential");
+const modelDatabase = await readFile(join(root, "src/lib/db/models.ts"), "utf8");
+assert.ok(modelDatabase.includes("export function syncDiscoveredCustomModels"),
+  "discovered model synchronization must use a dedicated database operation");
+assert.ok(modelDatabase.includes("const reconcile = db.transaction(() =>"),
+  "discovered model reconciliation must read and write inside one SQLite transaction");
+assert.ok(modelDatabase.includes('model.source !== "free-model-discovery"'),
+  "discovered model reconciliation must preserve operator-owned models");
+assert.ok(discoveryWorker.includes("syncDiscoveredCustomModels"),
+  "the discovery worker must use atomic managed-model reconciliation");
+const discoveryReconciliationTests = await readFile(
+  join(root, "tests/unit/free-model-discovery-reconcile.test.ts"),
+  "utf8",
+);
+assert.ok(discoveryReconciliationTests.includes("wins ID collisions"),
+  "discovery reconciliation must test operator-owned ID collision precedence");
+assert.ok(discoveryReconciliationTests.includes("malformed persisted catalogues"),
+  "discovery reconciliation must fail closed on malformed persisted state");
 assert.ok(rootPackage.files.includes("scripts/discovery/"),
   "the manual discovery command must be included in published packages");
 
