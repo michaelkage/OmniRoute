@@ -43,10 +43,13 @@ export function startFreeModelDiscoveryScheduler(): void {
   interval.unref?.();
 }
 
-export function stopFreeModelDiscoveryScheduler(): void {
-  if (!interval) return;
-  clearInterval(interval);
-  interval = null;
+export async function stopFreeModelDiscoveryScheduler(): Promise<void> {
+  if (interval) {
+    clearInterval(interval);
+    interval = null;
+  }
+  // Do not let an in-flight discovery write race database shutdown.
+  if (activeRun) await activeRun;
 }
 
 export async function runFreeModelDiscoveryNow(): Promise<void> {
