@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/v4-production-blueprint-neon-latest
+      - feature/render-free-deployment
   workflow_dispatch:
 
 permissions:
