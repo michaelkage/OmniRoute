@@ -3,6 +3,12 @@
  */
 
 import { getDbInstance } from "./core";
+import {
+  getSettingsStorage,
+  SETTINGS_REVISION_KEY,
+  SettingsRevisionConflictError,
+} from "./async/settingsStorage";
+export { SETTINGS_REVISION_KEY, SettingsRevisionConflictError } from "./async/settingsStorage";
 import { backupDbFile, backupDbFileAwaited } from "./backup";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import {
@@ -119,34 +125,6 @@ function withFamilyDefault(value: ProxyValue): ProxyValue {
 // ──────────────── Settings ────────────────
 
 /** Internal key_value row — not exposed as a user-facing settings field. */
-export const SETTINGS_REVISION_KEY = "_settingsRevision";
-
-export class SettingsRevisionConflictError extends Error {
-  readonly code = "SETTINGS_REVISION_CONFLICT" as const;
-
-  constructor(public readonly currentRevision: number) {
-    super("Settings revision mismatch");
-    this.name = "SettingsRevisionConflictError";
-  }
-}
-
-function readSettingsRevision(db: ReturnType<typeof getDbInstance>): number {
-  const row = db
-    .prepare("SELECT value FROM key_value WHERE namespace = 'settings' AND key = ?")
-    .get(SETTINGS_REVISION_KEY) as { value?: string } | undefined;
-  if (!row?.value) return 0;
-  try {
-    const parsed = JSON.parse(row.value) as unknown;
-    return typeof parsed === "number" && Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
-export async function getSettingsRevision(): Promise<number> {
-  return readSettingsRevision(getDbInstance());
-}
-
 /**
  * #7274: read-fallback for the codexSessionAffinityTtlMs -> sessionAffinityTtlMs
  * rename. Migration 124 already backfills the new key from any pre-existing
@@ -188,12 +166,8 @@ function applyStoredSettingRows(settings: Record<string, unknown>, rows: unknown
 }
 
 export async function getSettings() {
-  const db = getDbInstance();
-  const rows = db
-    .prepare(
-      "SELECT namespace, key, value FROM key_value WHERE namespace IN ('settings', 'databaseSettings')"
-    )
-    .all() as Array<{ namespace?: string; key?: string; value?: string }>;
+  const storage = getSettingsStorage();
+  const { rows } = await storage.read();
   const settings: Record<string, unknown> = {
     cloudEnabled: false,
     tailscaleEnabled: false,
@@ -391,12 +365,10 @@ export async function getSettings() {
   if (!settings.setupComplete && process.env.INITIAL_PASSWORD) {
     settings.setupComplete = true;
     settings.requireLogin = true;
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'setupComplete', 'true')"
-    ).run();
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'requireLogin', 'true')"
-    ).run();
+    await storage.update([
+      { namespace: "settings", key: "setupComplete", value: "true" },
+      { namespace: "settings", key: "requireLogin", value: "true" },
+    ]);
   }
 
   return settings;
@@ -441,22 +413,12 @@ export async function updateSettings(
     console.error("[DB] Pre-write backup failed:", error instanceof Error ? error.message : error);
   });
 
-  const db = getDbInstance();
-  const insert = db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', ?, ?)"
-  );
-  const tx = db.transaction(() => {
-    const currentRevision = readSettingsRevision(db);
-    if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRevision) {
-      throw new SettingsRevisionConflictError(currentRevision);
-    }
-    for (const [key, value] of Object.entries(updates)) {
-      const toStore = ENCRYPTED_SETTING_KEYS.has(key) ? encrypt(value as string) : value;
-      insert.run(key, JSON.stringify(toStore));
-    }
-    insert.run(SETTINGS_REVISION_KEY, JSON.stringify(currentRevision + 1));
+  const storage = getSettingsStorage();
+  const serializedUpdates = Object.entries(updates).map(([key, value]) => {
+    const toStore = ENCRYPTED_SETTING_KEYS.has(key) ? encrypt(value as string) : value;
+    return { namespace: "settings" as const, key, value: JSON.stringify(toStore) };
   });
-  tx();
+  await storage.update(serializedUpdates, options?.expectedRevision);
   invalidateDbCache("settings"); // Bust the read cache immediately
 
   // Bust proxy resolution cache when proxy toggle settings change
