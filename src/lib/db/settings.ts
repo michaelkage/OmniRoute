@@ -4,7 +4,6 @@
 
 import { getDbInstance } from "./core";
 import { getSettingsStorage } from "./async/settingsStorage";
-export { SETTINGS_REVISION_KEY, SettingsRevisionConflictError } from "./async/settingsStorage";
 import { backupDbFile } from "./backup";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import {
@@ -24,6 +23,8 @@ import { DEFAULT_RESPONSES_PREVIOUS_RESPONSE_ID_MODE } from "@/shared/constants/
 import { decodeUserinfo } from "@/shared/utils/decodeUserinfo";
 import { type JsonRecord, toRecord } from "./settings/shared";
 import { resolveNoAuthSharedProviderProxy } from "./settings/noAuthProxyFallback";
+
+export { SETTINGS_REVISION_KEY, SettingsRevisionConflictError } from "./async/settingsStorage";
 
 type ProxyValue = JsonRecord | string | null;
 type ProxyResolutionResult = {
