@@ -25,6 +25,7 @@ export interface SettingsStorageSnapshot {
 }
 
 export interface SettingsStorage {
+  readonly backend: "sqlite" | "postgres";
   read(): Promise<SettingsStorageSnapshot>;
   update(
     updates: readonly SettingsStorageUpdate[],
@@ -41,6 +42,7 @@ export { SettingsRevisionConflictError, SETTINGS_REVISION_KEY } from "./settings
  */
 export function createSqliteSettingsStorage(db: SqliteAdapter): SettingsStorage {
   return {
+    backend: "sqlite",
     async read() {
       const rows = db
         .prepare(
@@ -105,6 +107,7 @@ export function createSqliteSettingsStorage(db: SqliteAdapter): SettingsStorage 
 export function createPostgresSettingsStorage(db: AsyncDatabase): SettingsStorage {
   const repository = createPostgresSettingsRepository(db);
   return {
+    backend: "postgres",
     async read() {
       const snapshot = await repository.read();
       return { rows: snapshot.settings, revision: snapshot.revision };
