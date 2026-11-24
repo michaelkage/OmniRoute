@@ -2,7 +2,7 @@
 
 ## Status
 
-This branch now contains an asynchronous PostgreSQL foundation alongside the existing SQLite implementation. It is deliberately **not** enabled by the application composition root. The running application still defaults to the SQLite adapter in `src/lib/db/core.ts`. `src/lib/db/settings.ts` now accesses settings rows and revisioned writes through `SettingsStorage`; server composition can inject the PostgreSQL implementation with `configureSettingsStorage()` once a real PostgreSQL pool is available.
+The `feature/async-settings-storage-v3.8.52` branch is based on the synchronized `release/v3.8.52` fork branch and contains an asynchronous PostgreSQL foundation alongside the existing SQLite implementation. It is deliberately **not** enabled by the application composition root. The running application still defaults to the SQLite adapter in `src/lib/db/core.ts`. `src/lib/db/settings.ts` now accesses settings rows and revisioned writes through `SettingsStorage`; server composition can inject the PostgreSQL implementation with `configureSettingsStorage()` once a real PostgreSQL pool is available.
 
 Included:
 
