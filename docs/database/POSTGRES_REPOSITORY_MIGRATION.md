@@ -47,7 +47,8 @@ Run the new unit tests with the repository's normal TypeScript test runner:
 ```sh
 node --import tsx --test \
   tests/unit/db-adapters/postgresDatabase.test.ts \
-  tests/unit/db-adapters/postgresKeyValueRepository.test.ts \
+  tests/unit/db-adapters/postgresSettingsRepository.test.ts \
+  tests/unit/db-adapters/settingsStorage.test.ts \
   tests/unit/db-adapters/postgresMigrationRunner.test.ts
 ```
 
