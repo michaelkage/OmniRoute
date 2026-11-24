@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {
   createSqliteSettingsStorage,
   createPostgresSettingsStorage,
-  SettingsStorage,
 } from "../../../src/lib/db/async/settingsStorage";
+import type { SettingsStorage } from "../../../src/lib/db/async/settingsStorage";
 import type { SqliteAdapter, PreparedStatement } from "../../../src/lib/db/adapters/types";
 import type { AsyncDatabase, Queryable, QueryResult } from "../../../src/lib/db/async/postgresTypes";
 
