@@ -313,7 +313,7 @@ export async function updateSettings(
     value: JSON.stringify(key === "oidcClientSecret" ? encrypt(value as string) : value),
   }));
   await storage.update(serializedUpdates, options?.expectedRevision);
-  backupDbFile("pre-write");
+  if (storage.backend === "sqlite") backupDbFile("pre-write");
   invalidateDbCache("settings"); // Bust the read cache immediately
 
   // Bust proxy resolution cache when proxy toggle settings change
