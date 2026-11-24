@@ -87,7 +87,9 @@ function postgresFixture(initialRevision = 2) {
     },
   };
   const db: AsyncDatabase = {
-    query: queryable.query.bind(queryable),
+    async query<Row extends Record<string, unknown>>(sql: string, params?: readonly unknown[]) {
+      return queryable.query<Row>(sql, params);
+    },
     async transaction<T>(callback: (tx: Queryable) => Promise<T>) {
       return callback(queryable);
     },
