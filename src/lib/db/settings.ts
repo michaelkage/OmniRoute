@@ -425,11 +425,13 @@ export async function updateSettings(
   // Snapshot the state BEFORE the write, and wait for it: a snapshot started after the
   // commit holds the new value, so it could not roll this change back. A failed routine
   // snapshot is logged and must not block the settings write.
-  await backupDbFileAwaited("pre-write").catch((error: unknown) => {
-    console.error("[DB] Pre-write backup failed:", error instanceof Error ? error.message : error);
-  });
-
   const storage = getSettingsStorage();
+  if (storage.backend === "sqlite") {
+    await backupDbFileAwaited("pre-write").catch((error: unknown) => {
+      console.error("[DB] Pre-write backup failed:", error instanceof Error ? error.message : error);
+    });
+  }
+
   const serializedUpdates = Object.entries(updates).map(([key, value]) => {
     const toStore = ENCRYPTED_SETTING_KEYS.has(key) ? encrypt(value as string) : value;
     return { namespace: "settings" as const, key, value: JSON.stringify(toStore) };
