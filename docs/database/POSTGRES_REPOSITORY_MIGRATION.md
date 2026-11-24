@@ -8,7 +8,6 @@ Included:
 
 - `postgresTypes.ts`: driver-neutral Pool, PoolClient, Queryable and AsyncDatabase contracts.
 - `postgresDatabase.ts`: parameterized query boundary, transaction lifecycle, rollback, bounded retries for PostgreSQL serialization/deadlock SQLSTATEs, health check and idempotent close.
-- `keyValueRepository.ts`: async repository using the existing `key_value(namespace,key,value)` shape.
 - `settingsRepository.ts`: PostgreSQL settings reads and revision-checked writes using row-level locking.
 - `settingsStorage.ts`: common storage contract with SQLite and PostgreSQL adapters. The SQLite adapter preserves the existing synchronous driver's transaction boundary; the PostgreSQL adapter delegates to the async repository and retries compare-and-swap conflicts only for writes without an explicit expected revision.
 - `postgresMigrationRunner.ts`: advisory-lock-protected, transactional SQL migration runner with immutable SHA-256 checksums.
