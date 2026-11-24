@@ -16,11 +16,11 @@ Included:
 
 ## Why it is not wired into production yet
 
-The current application imports synchronous SQLite statements across `core.ts` and many domain modules. PostgreSQL is network I/O and cannot implement that API honestly. Replacing the singleton now would either break callers or hide asynchronous work behind blocking/unsafe behavior.
+The current application imports synchronous SQLite statements across `core.ts` and many domain modules. PostgreSQL is network I/O and cannot implement that API honestly. Replacing the singleton now would either break callers or hide asynchronous work behind blocking/unsafe behavior. The settings module is the first migrated domain: settings reads, revision reads and writes now use `SettingsStorage`; proxy configuration and the rest of the database API remain SQLite-backed.
 
 The existing SQLite migration system contains a large, versioned migration history with SQLite-specific DDL and compatibility handling. It must not be replayed blindly against PostgreSQL. The new PostgreSQL migration runner is a separate ledger; it currently owns only the small key-value schema declared in `postgresMigrations.ts`.
 
-The repository currently does not declare a PostgreSQL client package. The foundation accepts a structurally compatible pool so that a concrete driver can be added together with its lockfile update and runtime packaging verification. No undeclared runtime import is introduced here.
+The repository currently does not declare a PostgreSQL client package. The foundation accepts a structurally compatible pool so that a concrete driver can be added together with its lockfile update and runtime packaging verification. No undeclared runtime import is introduced here. `SettingsStorage` marks its backend so settings writes do not mistakenly invoke the SQLite backup routine when PostgreSQL is selected; PostgreSQL backup/restore integration remains a production gate.
 
 ## Transaction rules
 
