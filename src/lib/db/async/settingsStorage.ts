@@ -2,6 +2,7 @@ import { getDbInstance } from "../core";
 import type { SqliteAdapter } from "../adapters/types";
 import {
   createPostgresSettingsRepository,
+  SettingsRevisionConflictError,
   type SettingsUpdate as PostgresSettingsUpdate,
 } from "./settingsRepository";
 import type { AsyncDatabase } from "./postgresTypes";
@@ -83,14 +84,7 @@ export function createSqliteSettingsStorage(db: SqliteAdapter): SettingsStorage 
           }
         }
         if (expectedRevision !== undefined && expectedRevision !== currentRevision) {
-          const error = new Error("Settings revision mismatch") as Error & {
-            code: string;
-            currentRevision: number;
-          };
-          error.name = "SettingsRevisionConflictError";
-          error.code = "SETTINGS_REVISION_CONFLICT";
-          error.currentRevision = currentRevision;
-          throw error;
+          throw new SettingsRevisionConflictError(currentRevision);
         }
         for (const update of updates) {
           insert.run(update.namespace ?? "settings", update.key, update.value);
