@@ -3,11 +3,7 @@
  */
 
 import { getDbInstance } from "./core";
-import {
-  getSettingsStorage,
-  SETTINGS_REVISION_KEY,
-  SettingsRevisionConflictError,
-} from "./async/settingsStorage";
+import { getSettingsStorage } from "./async/settingsStorage";
 export { SETTINGS_REVISION_KEY, SettingsRevisionConflictError } from "./async/settingsStorage";
 import { backupDbFile, backupDbFileAwaited } from "./backup";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
@@ -377,6 +373,26 @@ export async function getSettings() {
 /**
  * The `maxBodySizeMb` an operator saved, or null if they never did. getSettings() cannot tell these
  * apart because it fills the key with the default.
+ */
+/**
+ * Async storage-backed variant for PostgreSQL-capable call sites.
+ */
+export async function getSavedRequestBodyLimitMbAsync(): Promise<number | null> {
+  const snapshot = await getSettingsStorage().read();
+  const rawValue = snapshot.rows.find(
+    (row) => row.namespace === "settings" && row.key === "maxBodySizeMb"
+  )?.value;
+  if (typeof rawValue !== "string") return null;
+  try {
+    return normalizeRequestBodyLimitMb(JSON.parse(rawValue));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @deprecated SQLite compatibility accessor. PostgreSQL callers must use
+ * getSavedRequestBodyLimitMbAsync() because network-backed storage is async.
  */
 export function getSavedRequestBodyLimitMb(): number | null {
   const row = getDbInstance()
