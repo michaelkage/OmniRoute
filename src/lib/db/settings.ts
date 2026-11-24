@@ -3,6 +3,8 @@
  */
 
 import { getDbInstance } from "./core";
+import { getSettingsStorage } from "./async/settingsStorage";
+export { SETTINGS_REVISION_KEY, SettingsRevisionConflictError } from "./async/settingsStorage";
 import { backupDbFile } from "./backup";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import {
@@ -101,33 +103,8 @@ function withFamilyDefault(value: ProxyValue): ProxyValue {
 
 // ──────────────── Settings ────────────────
 
-/** Internal key_value row — not exposed as a user-facing settings field. */
-export const SETTINGS_REVISION_KEY = "_settingsRevision";
-
-export class SettingsRevisionConflictError extends Error {
-  readonly code = "SETTINGS_REVISION_CONFLICT" as const;
-
-  constructor(public readonly currentRevision: number) {
-    super("Settings revision mismatch");
-    this.name = "SettingsRevisionConflictError";
-  }
-}
-
-function readSettingsRevision(db: ReturnType<typeof getDbInstance>): number {
-  const row = db
-    .prepare("SELECT value FROM key_value WHERE namespace = 'settings' AND key = ?")
-    .get(SETTINGS_REVISION_KEY) as { value?: string } | undefined;
-  if (!row?.value) return 0;
-  try {
-    const parsed = JSON.parse(row.value) as unknown;
-    return typeof parsed === "number" && Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export async function getSettingsRevision(): Promise<number> {
-  return readSettingsRevision(getDbInstance());
+  return (await getSettingsStorage().read()).revision;
 }
 
 /**
@@ -150,8 +127,8 @@ function applySessionAffinityLegacyFallback(settings: Record<string, unknown>): 
 }
 
 export async function getSettings() {
-  const db = getDbInstance();
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'settings'").all();
+  const storage = getSettingsStorage();
+  const { rows } = await storage.read();
   const settings: Record<string, unknown> = {
     cloudEnabled: false,
     tailscaleEnabled: false,
@@ -305,12 +282,10 @@ export async function getSettings() {
   if (!settings.setupComplete && process.env.INITIAL_PASSWORD) {
     settings.setupComplete = true;
     settings.requireLogin = true;
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'setupComplete', 'true')"
-    ).run();
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'requireLogin', 'true')"
-    ).run();
+    await storage.update([
+      { namespace: "settings", key: "setupComplete", value: "true" },
+      { namespace: "settings", key: "requireLogin", value: "true" },
+    ]);
   }
 
   return settings;
@@ -331,22 +306,13 @@ export async function updateSettings(
     }
   }
 
-  const db = getDbInstance();
-  const insert = db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', ?, ?)"
-  );
-  const tx = db.transaction(() => {
-    const currentRevision = readSettingsRevision(db);
-    if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRevision) {
-      throw new SettingsRevisionConflictError(currentRevision);
-    }
-    for (const [key, value] of Object.entries(updates)) {
-      const toStore = key === "oidcClientSecret" ? encrypt(value as string) : value;
-      insert.run(key, JSON.stringify(toStore));
-    }
-    insert.run(SETTINGS_REVISION_KEY, JSON.stringify(currentRevision + 1));
-  });
-  tx();
+  const storage = getSettingsStorage();
+  const serializedUpdates = Object.entries(updates).map(([key, value]) => ({
+    namespace: "settings" as const,
+    key,
+    value: JSON.stringify(key === "oidcClientSecret" ? encrypt(value as string) : value),
+  }));
+  await storage.update(serializedUpdates, options?.expectedRevision);
   backupDbFile("pre-write");
   invalidateDbCache("settings"); // Bust the read cache immediately
 
