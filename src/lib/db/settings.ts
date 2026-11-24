@@ -161,6 +161,11 @@ function applyStoredSettingRows(settings: Record<string, unknown>, rows: unknown
   }
 }
 
+/** Returns the current settings storage revision for optimistic concurrency. */
+export async function getSettingsRevision(): Promise<number> {
+  return (await getSettingsStorage().read()).revision;
+}
+
 export async function getSettings() {
   const storage = getSettingsStorage();
   const { rows } = await storage.read();
