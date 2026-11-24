@@ -1,4 +1,5 @@
-import { getDbInstance, type SqliteDatabase } from "../core";
+import { getDbInstance } from "../core";
+import type { SqliteAdapter } from "../adapters/types";
 import {
   createPostgresSettingsRepository,
   type SettingsUpdate as PostgresSettingsUpdate,
@@ -37,7 +38,7 @@ export { SettingsRevisionConflictError, SETTINGS_REVISION_KEY } from "./settings
  * existing settings implementation, including optional optimistic revision
  * checks and one revision increment per batch.
  */
-export function createSqliteSettingsStorage(db: SqliteDatabase): SettingsStorage {
+export function createSqliteSettingsStorage(db: SqliteAdapter): SettingsStorage {
   return {
     async read() {
       const rows = db
