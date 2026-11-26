@@ -266,6 +266,10 @@ async function uploadSnapshotDump(sqliteFile) {
           postgres.stdin.end("\n\\.\n", (error) => callback(error || inputFailure || undefined));
         },
         (error) => {
+          // Closing COPY stdin can be interpreted as clean EOF by psql. Kill the
+          // client first so PostgreSQL observes a broken connection and rolls back
+          // the still-open transaction instead of committing a truncated dump.
+          postgres.kill("SIGKILL");
           postgres.stdin.destroy();
           callback(error);
         }
