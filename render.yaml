@@ -6,7 +6,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
-    maxShutdownDelaySeconds: 30
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
