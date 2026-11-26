@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { createBase64Encoder, parseInterval, parsePostgresConnection, parseRetention } from "../../scripts/neon/persistence.mjs";
+import { createBase64Decoder, createBase64Encoder, parseInterval, parsePostgresConnection, parseRetention } from "../../scripts/neon/persistence.mjs";
 
 test("snapshot retention clamps to the supported range", () => {
   assert.equal(parseRetention("0"), 1);
@@ -50,4 +50,21 @@ test("streaming base64 encoder preserves payload across arbitrary chunk boundari
 
   await pipeline(Readable.from(input), createBase64Encoder(), sink);
   assert.equal(Buffer.concat(output).toString("ascii"), expected);
+});
+
+
+test("streaming base64 decoder handles arbitrary chunks and COPY newlines", async () => {
+  const payload = Buffer.from("snapshot restore across chunk boundaries");
+  const encoded = Buffer.from(payload.toString("base64") + "\\n");
+  const chunks = [];
+  for (let i = 0; i < encoded.length; i += 5) chunks.push(encoded.subarray(i, i + 5));
+  const output = [];
+  const sink = new Writable({
+    write(chunk, _encoding, callback) {
+      output.push(Buffer.from(chunk));
+      callback();
+    },
+  });
+  await pipeline(Readable.from(chunks), createBase64Decoder(), sink);
+  assert.deepEqual(Buffer.concat(output), payload);
 });
