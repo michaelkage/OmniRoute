@@ -670,14 +670,18 @@ export default function SystemStorageTab() {
       );
       const data = await res.json();
       if (res.ok) {
+        const successMessage = t("importSuccess", {
+          connections: data.connectionCount,
+          nodes: data.nodeCount,
+          combos: data.comboCount,
+          apiKeys: data.apiKeyCount,
+        });
         setImportStatus({
           type: "success",
-          message: t("importSuccess", {
-            connections: data.connectionCount,
-            nodes: data.nodeCount,
-            combos: data.comboCount,
-            apiKeys: data.apiKeyCount,
-          }),
+          message:
+            data.neonSnapshot === "failed"
+              ? `${successMessage} Neon recovery snapshot failed; check the server logs before relying on recovery.`
+              : successMessage,
         });
         await loadStorageHealth();
         if (backupsExpanded) await loadBackups();
