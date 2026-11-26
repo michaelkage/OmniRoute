@@ -208,6 +208,7 @@ async function uploadSnapshotDump(sqliteFile) {
 
   const dumpError = captureTail(dump.stderr);
   const postgresError = captureTail(postgres.stderr);
+  captureTail(postgres.stdout);
   const dumpDone = waitForChild(dump, "sqlite3 dump", dumpError);
   const postgresDone = waitForChild(postgres, "psql COPY", postgresError);
   let encodedBytes = 0;
