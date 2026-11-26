@@ -132,10 +132,6 @@ function ensureTable() {
   psql(["-c", "CREATE TABLE IF NOT EXISTS " + TABLE + " (id BIGSERIAL PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), payload TEXT NOT NULL); CREATE INDEX IF NOT EXISTS " + TABLE + "_created_at_idx ON " + TABLE + "(created_at DESC, id DESC);"]);
 }
 
-function latestPayload() {
-  return psql(["-At", "-c", "SELECT payload FROM " + TABLE + " ORDER BY created_at DESC, id DESC LIMIT 1;"]).trim();
-}
-
 function cleanupSnapshots() {
   psql(["-c", "DELETE FROM " + TABLE + " WHERE id NOT IN (SELECT id FROM " + TABLE + " ORDER BY created_at DESC, id DESC LIMIT " + RETENTION + ");"]);
 }
@@ -228,17 +224,22 @@ async function uploadSnapshotDump(sqliteFile) {
         callback(new Error("PostgreSQL COPY input closed before the snapshot finished."));
         return;
       }
-      const onError = (error) => callback(error);
-      postgres.stdin.once("error", onError);
-      if (postgres.stdin.write(chunk)) {
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
         postgres.stdin.removeListener("error", onError);
-        callback();
-      } else {
-        postgres.stdin.once("drain", () => {
-          postgres.stdin.removeListener("error", onError);
-          callback();
-        });
-      }
+        postgres.stdin.removeListener("drain", onDrain);
+        postgres.stdin.removeListener("close", onClose);
+        callback(error);
+      };
+      const onError = (error) => finish(error);
+      const onDrain = () => finish();
+      const onClose = () => finish(new Error("PostgreSQL COPY input closed unexpectedly."));
+      postgres.stdin.once("error", onError);
+      postgres.stdin.once("close", onClose);
+      if (postgres.stdin.write(chunk)) finish();
+      else postgres.stdin.once("drain", onDrain);
     },
     final(callback) {
       // Do not terminate COPY (and therefore do not commit the row) until sqlite3
