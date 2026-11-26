@@ -27,7 +27,7 @@ if (args[0] === "--version") {
     fs.copyFileSync(args[0], match[1]);
   }
 } else if (args[1] === ".dump") {
-  const value = Buffer.from(process.env.FAKE_SQLITE_DUMP || "SELECT 1;\\n");
+  const value = Buffer.from(process.env.FAKE_SQLITE_DUMP || "SELECT 1;\n");
   const failAfter = Number(process.env.FAKE_SQLITE_DUMP_FAIL_AFTER || 0);
   process.stdout.write(failAfter > 0 ? value.subarray(0, failAfter) : value);
   if (failAfter > 0) process.exitCode = 23;
@@ -40,7 +40,7 @@ if (args[0] === "--version") {
     fs.writeFileSync(args[0], Buffer.from("restored SQLite database"));
   });
 } else {
-  process.stderr.write("unsupported sqlite3 invocation: " + args.join(" ") + "\\n");
+  process.stderr.write("unsupported sqlite3 invocation: " + args.join(" ") + "\n");
   process.exitCode = 2;
 }
 `;
@@ -133,7 +133,7 @@ test("Neon snapshot streams a complete dump through gzip/Base64 and commits COPY
   assert.equal(copyResult.committed, true);
   assert.deepEqual(copyResult.commands.slice(0, 3), [
     "BEGIN",
-    "\\\\copy omniroute_sqlite_snapshots(payload) FROM STDIN",
+    "\\copy omniroute_sqlite_snapshots(payload) FROM STDIN",
     "COMMIT",
   ]);
 
