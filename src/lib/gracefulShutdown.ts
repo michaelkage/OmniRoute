@@ -131,6 +131,7 @@ async function cleanup(): Promise<void> {
       { closeLogRotation },
       { closeSharedLoggerResource },
       { closeCallLogSaves },
+      { stopFreeModelDiscoveryScheduler },
     ] = await Promise.all([
       import("@omniroute/open-sse/mcp-server/audit.ts"),
       import("@/lib/db/core"),
@@ -138,7 +139,17 @@ async function cleanup(): Promise<void> {
       import("@/lib/logRotation"),
       import("@/shared/utils/loggerResource"),
       import("@/lib/usage/callLogs"),
+      import("@/lib/freeModelDiscovery/scheduler"),
     ]);
+    // Drain the discovery worker before the final Neon snapshot and SQLite close.
+    try {
+      await stopFreeModelDiscoveryScheduler();
+    } catch (error) {
+      console.warn(
+        "[Shutdown] Free-model discovery did not drain cleanly:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     const flushResult = await flushSpendBatchWriter();
     if (flushResult.flushedEntries > 0) {
       console.log(
@@ -154,6 +165,13 @@ async function cleanup(): Promise<void> {
     }
     if (closeAuditDb()) {
       console.log("[Shutdown] MCP audit database checkpointed and closed.");
+    }
+    // Flush the final Neon snapshot while the SQLite database is still open.
+    try {
+      const { stopNeonPersistence } = await import("@/lib/neonPersistence");
+      await stopNeonPersistence();
+    } catch (error) {
+      console.warn("[Shutdown] Final Neon snapshot failed:", (error as Error).message);
     }
     try {
       if (await shutdownDbInstance()) {

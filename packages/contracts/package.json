@@ -1,0 +1,16 @@
+{
+  "name": "@omniroute/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stable, runtime-neutral contracts shared by OmniRoute application layers and extensions.",
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./provider-plugin-manifest": "./src/provider-plugin-manifest.ts",
+    "./routing-strategy": "./src/routing-strategy.ts",
+    "./provider-catalog": "./src/provider-catalog.ts",
+    "./credential-resolution": "./src/credential-resolution.ts"
+  }
+}

@@ -25,6 +25,8 @@
     "config/i18n.json",
     ".npmrc",
     "scripts/ops/opencode-free-relay.ts",
+    "scripts/neon/",
+    "scripts/discovery/",
     "scripts/build/postinstall.mjs",
     "scripts/build/betterSqlitePrebuildTarget.mjs",
     "scripts/build/fixPlaywrightAndroid.mjs",
@@ -50,7 +52,6 @@
     "config/release/wreq-js-rust-notices.md",
     "scripts/build/build-next-isolated.mjs",
     "scripts/i18n/generate-global-error-messages.mjs",
-    "scripts/build/runtime-env.mjs",
     "scripts/packs/optionalPackManifest.mjs",
     "scripts/packs/optionalPackInstaller.mjs",
     "README.md",
@@ -64,12 +65,14 @@
     "!**/*.test.mjs",
     "!**/*.spec.ts",
     "!**/*.spec.tsx",
-    "!**/*.nft.json"
+    "!**/*.nft.json",
+    "packages/contracts/"
   ],
   "workspaces": [
     "open-sse",
     "packages/browser-pool",
-    "packages/ui-kit"
+    "packages/ui-kit",
+    "packages/contracts"
   ],
   "engines": {
     "node": ">=22.22.2 <23 || >=24.0.0 <27"
@@ -98,6 +101,10 @@
   "homepage": "https://omniroute.online",
   "scripts": {
     "dev": "node --max-old-space-size=8192 scripts/dev/run-next.mjs dev",
+    "neon:ensure": "node scripts/neon/persistence.mjs ensure",
+    "neon:snapshot": "node scripts/neon/persistence.mjs snapshot",
+    "neon:restore": "node scripts/neon/persistence.mjs restore",
+    "models:discover": "node --import tsx scripts/discovery/run-free-model-discovery.mjs",
     "dev:candidate": "node scripts/dev/candidate.mjs",
     "prebuild:docs": "node scripts/docs/gen-openapi-module.mjs",
     "gen:provider-reference": "bun scripts/docs/gen-provider-reference.ts",
@@ -339,7 +346,11 @@
     "check:ui-kit-snapshot": "node scripts/check/check-ui-kit-snapshot.mjs",
     "gen:icon-map": "node scripts/dev/gen-icon-map.mjs",
     "docs:readme-hero": "node scripts/docs/gen-readme-hero.mjs",
-    "docs:readme-diagrams": "node --import tsx/esm scripts/docs/gen-readme-diagrams.mjs"
+    "docs:readme-diagrams": "node --import tsx/esm scripts/docs/gen-readme-diagrams.mjs",
+    "typecheck:contracts": "tsc --project packages/contracts/tsconfig.json",
+    "check:architecture-boundaries": "node scripts/check/check-architecture-boundaries.mjs && node scripts/check/audit-architecture-graph.mjs",
+    "audit:architecture": "node scripts/check/audit-architecture-graph.mjs",
+    "test:v4-foundation": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=4096 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/unit/credential-lease-execution.test.ts tests/unit/credential-resolution-port.test.ts tests/unit/free-model-discovery-worker.test.ts tests/unit/free-model-discovery-reconcile.test.ts tests/unit/neon-persistence.test.mjs tests/unit/provider-catalog-port.test.ts tests/unit/provider-credential-resolver.test.ts tests/unit/provider-plugin-manifest.test.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",

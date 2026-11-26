@@ -1,0 +1,54 @@
+name: V4 foundation verification
+
+on:
+  push:
+    branches:
+      - feature/v4-production-blueprint-neon-latest
+      - feature/render-free-deployment
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v4-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    name: Contracts, architecture and focused runtime tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      NODE_ENV: test
+      JWT_SECRET: v4-foundation-ci-jwt-secret-with-sufficient-length
+      API_KEY_SECRET: v4-foundation-ci-api-key-secret
+      DISABLE_SQLITE_AUTO_BACKUP: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci-retry
+        with:
+          cache: "false"
+
+      - name: Typecheck shared contracts
+        run: npm run typecheck:contracts
+
+      - name: Enforce architecture boundaries
+        run: npm run check:architecture-boundaries
+
+      - name: Run focused V4 foundation tests
+        run: npm run test:v4-foundation

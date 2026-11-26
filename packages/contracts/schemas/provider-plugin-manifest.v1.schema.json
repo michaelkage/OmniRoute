@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omniroute.online/schemas/provider-plugin-manifest.v1.schema.json",
+  "title": "OmniRoute Provider Plugin Manifest",
+  "description": "JSON-safe provider metadata. Never include credentials, secrets, executable code, dynamic URL builders, or session-pool internals.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedFrom", "providers"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedFrom": { "const": "open-sse/config/providers" },
+    "providers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provider" }
+    }
+  },
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "format", "executor", "auth", "endpoints", "capabilities", "passthroughModels", "models", "sidecar"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "alias": { "type": "string", "minLength": 1 },
+        "format": { "type": "string" },
+        "executor": { "type": "string" },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "header"],
+          "properties": {
+            "type": { "type": "string" },
+            "header": { "type": "string" },
+            "prefix": { "type": "string" }
+          }
+        },
+        "endpoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "baseUrl": { "type": "string" },
+            "baseUrls": { "type": "array", "items": { "type": "string" } },
+            "responsesBaseUrl": { "type": "string" },
+            "chatPath": { "type": "string" },
+            "modelsUrl": { "type": "string" }
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["apikey", "custom-executor", "free-tier", "oauth", "passthrough-models", "responses", "sidecar-candidate", "usage-fetch", "usage-supported"]
+          }
+        },
+        "passthroughModels": { "type": "boolean" },
+        "defaultContextLength": { "type": "number" },
+        "timeoutMs": { "type": "number", "minimum": 0 },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "contextLength": { "type": "number" },
+              "maxOutputTokens": { "type": "number" },
+              "toolCalling": { "type": "boolean" },
+              "supportsReasoning": { "type": "boolean" },
+              "supportsVision": { "type": "boolean" },
+              "supportsVideo": { "type": "boolean" },
+              "unsupportedParams": { "type": "array", "items": { "type": "string" } },
+              "targetFormat": { "type": "string" }
+            }
+          }
+        },
+        "sidecar": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eligible", "reasons"],
+          "properties": {
+            "eligible": { "type": "boolean" },
+            "reasons": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

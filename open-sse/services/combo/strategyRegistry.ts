@@ -12,7 +12,7 @@
 //
 // Internal on purpose: the public plugin extension point is planned for v4.
 
-import type { AnyRoutingStrategyValue } from "../../../src/shared/constants/routingStrategies.ts";
+import type { AnyRoutingStrategyValue } from "@omniroute/contracts/routing-strategy";
 
 /**
  * Pre-dispatch target-ordering stage. `declared` keeps the resolved order; `auto` is
