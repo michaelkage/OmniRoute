@@ -197,22 +197,24 @@ function waitForChild(child, label, getStderr) {
  * Memory use is bounded by stream high-water marks rather than database size.
  */
 async function uploadSnapshotDump(sqliteFile) {
-  const dump = spawn("sqlite3", [sqliteFile, ".dump"], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  const postgres = spawn(
-    "psql",
-    ["-v", "ON_ERROR_STOP=1", "-X", "-w", "-c", "\\copy " + TABLE + "(payload) FROM STDIN"],
-    { env: postgresEnv(), stdio: ["pipe", "pipe", "pipe"] }
-  );
+  const dump = spawn("sqlite3", [sqliteFile, ".dump"], { stdio: ["ignore", "pipe", "pipe"] });
+  const postgres = spawn("psql", [
+    "-v", "ON_ERROR_STOP=1", "-X", "-w",
+    "-c", "BEGIN",
+    "-c", "\\copy " + TABLE + "(payload) FROM STDIN",
+    "-c", "COMMIT",
+  ], { env: postgresEnv(), stdio: ["pipe", "pipe", "pipe"] });
 
   const dumpError = captureTail(dump.stderr);
   const postgresError = captureTail(postgres.stderr);
   captureTail(postgres.stdout);
   const dumpDone = waitForChild(dump, "sqlite3 dump", dumpError);
   const postgresDone = waitForChild(postgres, "psql COPY", postgresError);
-  let encodedBytes = 0;
+  // Attach rejection observers immediately; pipeline/final below still awaits both.
+  void dumpDone.catch(() => {});
+  void postgresDone.catch(() => {});
 
+  let encodedBytes = 0;
   const meter = new Transform({
     transform(chunk, _encoding, callback) {
       encodedBytes += chunk.length;
@@ -222,15 +224,32 @@ async function uploadSnapshotDump(sqliteFile) {
 
   const destination = new Writable({
     write(chunk, _encoding, callback) {
-      if (postgres.stdin.destroyed) {
+      if (postgres.stdin.destroyed || postgres.stdin.writableEnded) {
         callback(new Error("PostgreSQL COPY input closed before the snapshot finished."));
         return;
       }
-      if (postgres.stdin.write(chunk)) callback();
-      else postgres.stdin.once("drain", callback);
+      const onError = (error) => callback(error);
+      postgres.stdin.once("error", onError);
+      if (postgres.stdin.write(chunk)) {
+        postgres.stdin.removeListener("error", onError);
+        callback();
+      } else {
+        postgres.stdin.once("drain", () => {
+          postgres.stdin.removeListener("error", onError);
+          callback();
+        });
+      }
     },
     final(callback) {
-      postgres.stdin.end("\n\\.\n", callback);
+      // Do not terminate COPY (and therefore do not commit the row) until sqlite3
+      // has confirmed that the complete dump was produced successfully.
+      dumpDone.then(
+        () => postgres.stdin.end("\\n\\\\.\\n", callback),
+        (error) => {
+          postgres.stdin.destroy();
+          callback(error);
+        }
+      );
     },
     destroy(error, callback) {
       if (error && !postgres.stdin.destroyed) postgres.stdin.destroy(error);
@@ -252,13 +271,13 @@ async function uploadSnapshotDump(sqliteFile) {
   } catch (error) {
     dump.kill("SIGTERM");
     postgres.kill("SIGTERM");
+    if (!postgres.stdin.destroyed) postgres.stdin.destroy();
     await Promise.allSettled([dumpDone, postgresDone]);
     throw error;
   } finally {
     clearTimeout(timeout);
   }
 }
-
 async function snapshot() {
   assertEnabled();
   assertTooling();
@@ -280,7 +299,26 @@ function fsyncFile(filePath) {
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
 
-function restore() {
+/** Decode a streamed base64 COPY result without buffering the stored payload. */
+function createBase64Decoder() {
+  let carry = "";
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      const input = carry + chunk.toString("ascii").replace(/\\s+/g, "");
+      const completeLength = input.length - (input.length % 4);
+      if (completeLength) this.push(Buffer.from(input.slice(0, completeLength), "base64"));
+      carry = input.slice(completeLength);
+      callback();
+    },
+    flush(callback) {
+      if (carry.length) this.push(Buffer.from(carry, "base64"));
+      carry = "";
+      callback();
+    },
+  });
+}
+
+async function restore() {
   assertEnabled();
   assertTooling();
   if (fs.existsSync(SQLITE_FILE)) {
@@ -293,22 +331,58 @@ function restore() {
     }
   }
   ensureTable();
-  const payload = latestPayload();
-  if (!payload) {
-    console.log("[NEON] no Neon snapshot exists; allowing first-time SQLite initialization.");
-    return false;
-  }
-  if (Buffer.byteLength(payload, "utf8") > MAX_BUFFER) {
-    throw new Error("Stored Neon snapshot exceeds the bounded restore buffer; refusing to allocate it.");
-  }
   fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
   const stamp = process.pid + "-" + Date.now();
-  const dumpFile = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sql");
+  const dumpFile = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sql.gz");
   const tempDb = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sqlite");
+  const postgres = spawn("psql", [
+    "-v", "ON_ERROR_STOP=1", "-X", "-w", "-q",
+    "-c", "COPY (SELECT payload FROM " + TABLE + " ORDER BY created_at DESC, id DESC LIMIT 1) TO STDOUT",
+  ], { env: postgresEnv(), stdio: ["ignore", "pipe", "pipe"] });
+  const postgresError = captureTail(postgres.stderr);
+  const postgresDone = waitForChild(postgres, "Neon snapshot download", postgresError);
+  void postgresDone.catch(() => {});
+  let restored = false;
+
   try {
-    const dump = gunzipSync(Buffer.from(payload, "base64"), { maxOutputLength: MAX_BUFFER });
-    fs.writeFileSync(dumpFile, dump, { mode: 0o600, flag: "wx" });
-    command("sqlite3", [tempDb], { input: dump });
+    let expandedBytes = 0;
+    const expansionGuard = new Transform({
+      transform(chunk, _encoding, callback) {
+        expandedBytes += chunk.length;
+        if (expandedBytes > 512 * 1024 * 1024) {
+          callback(new Error("Neon snapshot expands beyond the 512 MiB restore safety limit."));
+          return;
+        }
+        callback(null, chunk);
+      },
+    });
+    await pipeline(
+      postgres.stdout,
+      createBase64Decoder(),
+      (await import("node:zlib")).createGunzip(),
+      expansionGuard,
+      fs.createWriteStream(dumpFile, { flags: "wx", mode: 0o600 })
+    );
+    await postgresDone;
+
+    if (expandedBytes === 0) {
+      console.log("[NEON] no Neon snapshot exists; allowing first-time SQLite initialization.");
+      return false;
+    }
+
+    const sqlite = spawn("sqlite3", [tempDb], { stdio: ["pipe", "ignore", "pipe"] });
+    const sqliteError = captureTail(sqlite.stderr);
+    const sqliteDone = waitForChild(sqlite, "SQLite restore", sqliteError);
+    void sqliteDone.catch(() => {});
+    try {
+      await pipeline(fs.createReadStream(dumpFile), sqlite.stdin);
+      await sqliteDone;
+    } catch (error) {
+      sqlite.kill("SIGTERM");
+      await Promise.allSettled([sqliteDone]);
+      throw error;
+    }
+
     const integrity = command("sqlite3", [tempDb, "PRAGMA integrity_check;"]).trim();
     if (integrity !== "ok") throw new Error("Restored SQLite integrity check failed: " + integrity.slice(0, 500));
     assertSnapshotSize(tempDb, MAX_SNAPSHOT_BYTES);
@@ -324,14 +398,15 @@ function restore() {
       throw error;
     }
     fsyncFile(SQLITE_FILE);
+    restored = true;
     console.log("[NEON] restored and integrity-checked SQLite database from Neon.");
     return true;
   } finally {
+    if (!postgresDone) postgres.kill("SIGTERM");
     fs.rmSync(dumpFile, { force: true });
     fs.rmSync(tempDb, { force: true });
   }
 }
-
 export async function runCli(commandName = process.argv[2] || "snapshot") {
   assertEnabled();
   if (commandName === "ensure") {
@@ -339,7 +414,7 @@ export async function runCli(commandName = process.argv[2] || "snapshot") {
     ensureTable();
     console.log("[NEON] snapshot table is ready.");
   } else if (commandName === "snapshot") await snapshot();
-  else if (commandName === "restore") restore();
+  else if (commandName === "restore") await restore();
   else throw new Error("Unknown command: " + commandName);
 }
 
