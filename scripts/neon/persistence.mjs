@@ -371,8 +371,8 @@ async function restore() {
     const expansionGuard = new Transform({
       transform(chunk, _encoding, callback) {
         expandedBytes += chunk.length;
-        if (expandedBytes > 512 * 1024 * 1024) {
-          callback(new Error("Neon snapshot expands beyond the 512 MiB restore safety limit."));
+        if (expandedBytes > 256 * 1024 * 1024) {
+          callback(new Error("Neon snapshot expands beyond the 256 MiB restore safety limit."));
           return;
         }
         callback(null, chunk);
@@ -426,6 +426,9 @@ async function restore() {
     if (postgres.exitCode === null && postgres.signalCode === null) postgres.kill("SIGTERM");
     fs.rmSync(dumpFile, { force: true });
     fs.rmSync(tempDb, { force: true });
+    for (const suffix of ["-wal", "-shm", "-journal"]) {
+      fs.rmSync(tempDb + suffix, { force: true });
+    }
   }
 }
 export async function runCli(commandName = process.argv[2] || "snapshot") {
