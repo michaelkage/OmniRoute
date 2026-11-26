@@ -55,6 +55,7 @@ jobs:
           tests/unit/db-import-chunked-body-limit.test.ts
           tests/unit/db-import-dry-run.test.ts
           tests/unit/neon-persistence.test.mjs
+          tests/unit/neon-persistence-process.test.mjs
 
       - name: Build production application
         run: npm run build:fast
