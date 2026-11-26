@@ -117,6 +117,14 @@ export async function restoreNeonPersistenceIfNeeded(): Promise<boolean> {
   return true;
 }
 
+/** Persist a just-imported database immediately; resolves only after the helper succeeds. */
+export async function snapshotNeonPersistenceNow(): Promise<boolean> {
+  assertConfiguration();
+  if (!ENABLED) return false;
+  await snapshotOnce();
+  return true;
+}
+
 async function snapshotOnce(): Promise<void> {
   if (!ENABLED || stopped) return;
   if (inFlight) return inFlight;
