@@ -253,7 +253,9 @@ async function uploadSnapshotDump(sqliteFile) {
       );
     },
     destroy(error, callback) {
-      if (error && !postgres.stdin.destroyed) postgres.stdin.destroy(error);
+      // The pipeline already owns the error; destroy stdin without re-emitting it
+      // on a pipe that may no longer have a listener.
+      if (!postgres.stdin.destroyed) postgres.stdin.destroy();
       callback(error);
     },
   });
