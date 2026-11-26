@@ -2,8 +2,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { gzipSync, gunzipSync } from "node:zlib";
+import { spawn, spawnSync } from "node:child_process";
+import { Transform, Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { createGzip, gunzipSync } from "node:zlib";
 import { pathToFileURL } from "node:url";
 
 const TABLE = "omniroute_sqlite_snapshots";
@@ -153,29 +155,124 @@ function createSqliteBackup() {
   }
 }
 
-function snapshot() {
+function captureTail(stream, limit = 64 * 1024) {
+  let value = "";
+  stream.on("data", (chunk) => {
+    value = (value + chunk.toString("utf8")).slice(-limit);
+  });
+  return () => value.trim();
+}
+
+/** Base64 encoder that retains at most two bytes between chunks. */
+function createBase64Encoder() {
+  let carry = Buffer.alloc(0);
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      const input = carry.length ? Buffer.concat([carry, chunk]) : chunk;
+      const completeLength = input.length - (input.length % 3);
+      if (completeLength > 0) this.push(input.subarray(0, completeLength).toString("base64"));
+      carry = Buffer.from(input.subarray(completeLength));
+      callback();
+    },
+    flush(callback) {
+      if (carry.length) this.push(carry.toString("base64"));
+      carry = Buffer.alloc(0);
+      callback();
+    },
+  });
+}
+
+function waitForChild(child, label, getStderr) {
+  return new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(getStderr() || label + " exited with " + (signal || code)));
+    });
+  });
+}
+
+/**
+ * Stream sqlite3's SQL dump through gzip + base64 directly into psql's COPY stdin.
+ * Memory use is bounded by stream high-water marks rather than database size.
+ */
+async function uploadSnapshotDump(sqliteFile) {
+  const dump = spawn("sqlite3", [sqliteFile, ".dump"], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const postgres = spawn(
+    "psql",
+    ["-v", "ON_ERROR_STOP=1", "-X", "-w", "-c", "\\copy " + TABLE + "(payload) FROM STDIN"],
+    { env: postgresEnv(), stdio: ["pipe", "pipe", "pipe"] }
+  );
+
+  const dumpError = captureTail(dump.stderr);
+  const postgresError = captureTail(postgres.stderr);
+  const dumpDone = waitForChild(dump, "sqlite3 dump", dumpError);
+  const postgresDone = waitForChild(postgres, "psql COPY", postgresError);
+  let encodedBytes = 0;
+
+  const meter = new Transform({
+    transform(chunk, _encoding, callback) {
+      encodedBytes += chunk.length;
+      callback(null, chunk);
+    },
+  });
+
+  const destination = new Writable({
+    write(chunk, _encoding, callback) {
+      if (postgres.stdin.destroyed) {
+        callback(new Error("PostgreSQL COPY input closed before the snapshot finished."));
+        return;
+      }
+      if (postgres.stdin.write(chunk)) callback();
+      else postgres.stdin.once("drain", callback);
+    },
+    final(callback) {
+      postgres.stdin.end("\\n\\\\.\\n", callback);
+    },
+    destroy(error, callback) {
+      if (error && !postgres.stdin.destroyed) postgres.stdin.destroy(error);
+      callback(error);
+    },
+  });
+
+  const timeout = setTimeout(() => {
+    dump.kill("SIGTERM");
+    postgres.kill("SIGTERM");
+  }, 110_000);
+  timeout.unref?.();
+
+  try {
+    await pipeline(dump.stdout, createGzip({ level: 6 }), createBase64Encoder(), meter, destination);
+    await Promise.all([dumpDone, postgresDone]);
+    if (encodedBytes === 0) throw new Error("SQLite dump was empty; refusing to upload an empty snapshot.");
+    return encodedBytes;
+  } catch (error) {
+    dump.kill("SIGTERM");
+    postgres.kill("SIGTERM");
+    await Promise.allSettled([dumpDone, postgresDone]);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function snapshot() {
   assertEnabled();
   assertTooling();
   ensureTable();
   let temp;
   try {
     temp = createSqliteBackup();
-    const dump = command("sqlite3", [temp, ".dump"]);
-    if (!dump.trim()) throw new Error("SQLite dump was empty; refusing to upload an empty snapshot.");
-    if (Buffer.byteLength(dump, "utf8") > MAX_BUFFER) {
-      throw new Error("SQLite SQL dump exceeds the bounded snapshot buffer; refusing upload.");
-    }
-    const payload = gzipSync(Buffer.from(dump, "utf8"), { level: 6 }).toString("base64");
-    if (Buffer.byteLength(payload, "utf8") > MAX_BUFFER) {
-      throw new Error("Compressed SQLite snapshot exceeds the bounded upload buffer; refusing upload.");
-    }
-    psql(["-c", "\\copy " + TABLE + "(payload) FROM STDIN"], payload + "\n");
+    const encodedBytes = await uploadSnapshotDump(temp);
     cleanupSnapshots();
-    console.log("[NEON] snapshot saved (" + Math.round(Buffer.byteLength(payload, "utf8") / 1024) + " KiB compressed payload; SQLite limit " + MAX_SNAPSHOT_BYTES + " bytes)");
+    console.log("[NEON] snapshot saved (" + Math.round(encodedBytes / 1024) + " KiB compressed payload; SQLite limit " + MAX_SNAPSHOT_BYTES + " bytes)");
   } finally {
     if (temp) fs.rmSync(temp, { force: true });
   }
 }
+
 
 function fsyncFile(filePath) {
   const fd = fs.openSync(filePath, "r+");
@@ -234,19 +331,19 @@ function restore() {
   }
 }
 
-export function runCli(commandName = process.argv[2] || "snapshot") {
+export async function runCli(commandName = process.argv[2] || "snapshot") {
   assertEnabled();
   if (commandName === "ensure") {
     assertTooling();
     ensureTable();
     console.log("[NEON] snapshot table is ready.");
-  } else if (commandName === "snapshot") snapshot();
+  } else if (commandName === "snapshot") await snapshot();
   else if (commandName === "restore") restore();
   else throw new Error("Unknown command: " + commandName);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try { runCli(); }
+  try { await runCli(); }
   catch (error) {
     console.error("[NEON] " + (error instanceof Error ? error.message : String(error)));
     process.exitCode = 1;
