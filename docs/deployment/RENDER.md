@@ -19,12 +19,12 @@ local checkout, shell session, or hand-written environment configuration is requ
    private.
 2. Open the **Deploy to Render** link in the repository README.
 3. Sign in to Render and authorize access to the repository fork if prompted.
-4. Render reads `render.yaml` and creates the Docker web service. When asked for
-   `DATABASE_URL`, paste the Neon connection string. Do not put it in source control,
-   a Docker build argument, or a `NEXT_PUBLIC_*` variable.
-5. Review the Blueprint plan and apply it. Render generates `JWT_SECRET`,
+4. Review the Blueprint plan and apply it. Render generates `JWT_SECRET`,
    `API_KEY_SECRET`, and `INITIAL_PASSWORD` automatically.
-6. Wait for the first deployment to become Live, then open the service URL.
+5. Before the first successful boot, open the new service in Render, go to **Environment**,
+   and add `DATABASE_URL` with the Neon connection string. Do not put it in source control,
+   a Docker build argument, or a `NEXT_PUBLIC_*` variable. Save the change to trigger a deploy.
+6. Wait for the deployment to become Live, then open the service URL.
 7. In the Render service's Environment page, reveal/copy the generated
    `INITIAL_PASSWORD` and use it for the first dashboard login. Change it immediately
    in the dashboard. The password is persisted in the application database, so changing
