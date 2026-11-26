@@ -120,19 +120,39 @@ export async function restoreNeonPersistenceIfNeeded(): Promise<boolean> {
 /** Persist a just-imported database immediately; resolves only after the helper succeeds. */
 export async function snapshotNeonPersistenceNow(): Promise<boolean> {
   assertConfiguration();
-  if (!ENABLED) return false;
-  await snapshotOnce();
+  if (!ENABLED || stopped) return false;
+
+  // A periodic snapshot may have started before the import replaced SQLite.
+  // Wait for it, then force a fresh snapshot of the imported database.
+  const previous = inFlight;
+  const current = (async () => {
+    if (previous) {
+      try {
+        await previous;
+      } catch {
+        // A failed earlier snapshot must not prevent the post-import attempt.
+      }
+    }
+    await run("snapshot");
+  })();
+  inFlight = current;
+  try {
+    await current;
+  } finally {
+    if (inFlight === current) inFlight = undefined;
+  }
   return true;
 }
 
 async function snapshotOnce(): Promise<void> {
   if (!ENABLED || stopped) return;
   if (inFlight) return inFlight;
-  inFlight = run("snapshot");
+  const current = run("snapshot");
+  inFlight = current;
   try {
-    await inFlight;
+    await current;
   } finally {
-    inFlight = undefined;
+    if (inFlight === current) inFlight = undefined;
   }
 }
 
