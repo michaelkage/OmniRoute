@@ -13,6 +13,17 @@
 
 </div>
 
+## 🚀 Deploy your own OmniRoute
+
+**No local setup or AI assistant required.** Create a Neon database, then deploy the maintained
+Render configuration directly from this repository.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/michaelkage/OmniRoute/tree/feature/render-free-deployment)
+
+Read the [step-by-step Render deployment guide](docs/deployment/RENDER.md) before deploying.
+Render will generate the application secrets and prompt you for your private Neon
+`DATABASE_URL`.
+
 <div align="center">
 
 ## 💰 ~1.62B Tokens / Month Across Third-Party Free Tiers
