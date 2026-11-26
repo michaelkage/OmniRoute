@@ -105,6 +105,12 @@ export async function stageUpload(request: Request): Promise<Upload | Response> 
       limiter,
       fs.createWriteStream(tmpPath, { flags: "wx", mode: 0o600 })
     );
+    const stagedFd = fs.openSync(tmpPath, "r");
+    try {
+      fs.fsyncSync(stagedFd);
+    } finally {
+      fs.closeSync(stagedFd);
+    }
   } catch (error) {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     if (error instanceof UploadTooLargeError) return tooLargeResponse();
@@ -204,6 +210,16 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
 
   // Atomic same-filesystem replacement: staged file is beside SQLITE_FILE.
   fs.renameSync(tmpPath, SQLITE_FILE!);
+  try {
+    const directoryFd = fs.openSync(path.dirname(SQLITE_FILE!), "r");
+    try {
+      fs.fsyncSync(directoryFd);
+    } finally {
+      fs.closeSync(directoryFd);
+    }
+  } catch {
+    // Some platforms do not permit fsync on directory handles; the rename remains atomic.
+  }
 
   // Reopen and verify
   getDbInstance();
