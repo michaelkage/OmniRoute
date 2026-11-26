@@ -59,10 +59,12 @@ successful snapshot log entry.
 
 ## Updating
 
-The service is connected to the deployment branch and auto-deploys on commits. Keep
-`render.yaml` and this guide together when changing deployment requirements. If you
-change the Blueprint's environment variables, review the Render Blueprint plan before
-applying it.
+The Blueprint disables automatic deploys intentionally. This prevents a maintainer's
+push from unexpectedly redeploying every independent instance created from the public
+Deploy button. To update later, open the service in Render and use **Manual Deploy → Deploy
+latest commit** when you are ready. Keep `render.yaml` and this guide together when changing
+deployment requirements. Review the Render Blueprint plan before applying infrastructure
+changes.
 
 ## Troubleshooting
 
