@@ -21,8 +21,8 @@ Render configuration directly from this repository.
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/michaelkage/OmniRoute/tree/feature/render-free-deployment)
 
 Read the [step-by-step Render deployment guide](docs/deployment/RENDER.md) before deploying.
-Render will generate the application secrets and prompt you for your private Neon
-`DATABASE_URL`.
+Render generates the application secrets. Add your private Neon `DATABASE_URL` in the
+service Environment settings before its first successful boot.
 
 <div align="center">
 
