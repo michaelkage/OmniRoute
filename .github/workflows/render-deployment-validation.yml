@@ -1,4 +1,4 @@
-name: Render deployment validation
+name: Render import, Neon recovery, and deployment validation
 
 on:
   workflow_dispatch:
