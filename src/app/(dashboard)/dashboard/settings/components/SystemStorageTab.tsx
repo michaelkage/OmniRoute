@@ -658,13 +658,14 @@ export default function SystemStorageTab() {
     setImportStatus({ type: "", message: "" });
     setConfirmImport(false);
     try {
-      const arrayBuffer = await pendingImportFile.arrayBuffer();
       const res = await fetch(
         `/api/db-backups/import?filename=${encodeURIComponent(pendingImportFile.name)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/octet-stream" },
-          body: arrayBuffer,
+          // Pass the File directly. Calling arrayBuffer() duplicates the entire
+          // database in browser memory before the request even starts.
+          body: pendingImportFile,
         }
       );
       const data = await res.json();
