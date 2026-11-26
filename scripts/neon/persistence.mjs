@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { Transform, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { createGzip, gunzipSync } from "node:zlib";
+import { createGzip, createGunzip } from "node:zlib";
 import { pathToFileURL } from "node:url";
 
 const TABLE = "omniroute_sqlite_snapshots";
@@ -333,7 +333,7 @@ async function restore() {
   ensureTable();
   fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
   const stamp = process.pid + "-" + Date.now();
-  const dumpFile = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sql.gz");
+  const dumpFile = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sql");
   const tempDb = path.join(DATA_DIR, ".neon-restore-" + stamp + ".sqlite");
   const postgres = spawn("psql", [
     "-v", "ON_ERROR_STOP=1", "-X", "-w", "-q",
@@ -342,7 +342,6 @@ async function restore() {
   const postgresError = captureTail(postgres.stderr);
   const postgresDone = waitForChild(postgres, "Neon snapshot download", postgresError);
   void postgresDone.catch(() => {});
-  let restored = false;
 
   try {
     let expandedBytes = 0;
@@ -359,7 +358,7 @@ async function restore() {
     await pipeline(
       postgres.stdout,
       createBase64Decoder(),
-      (await import("node:zlib")).createGunzip(),
+      createGunzip(),
       expansionGuard,
       fs.createWriteStream(dumpFile, { flags: "wx", mode: 0o600 })
     );
@@ -398,11 +397,10 @@ async function restore() {
       throw error;
     }
     fsyncFile(SQLITE_FILE);
-    restored = true;
     console.log("[NEON] restored and integrity-checked SQLite database from Neon.");
     return true;
   } finally {
-    if (!postgresDone) postgres.kill("SIGTERM");
+    if (postgres.exitCode === null && postgres.signalCode === null) postgres.kill("SIGTERM");
     fs.rmSync(dumpFile, { force: true });
     fs.rmSync(tempDb, { force: true });
   }
