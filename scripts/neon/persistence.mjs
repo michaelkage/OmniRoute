@@ -229,7 +229,7 @@ async function uploadSnapshotDump(sqliteFile) {
       else postgres.stdin.once("drain", callback);
     },
     final(callback) {
-      postgres.stdin.end("\\n\\\\.\\n", callback);
+      postgres.stdin.end("\n\\.\n", callback);
     },
     destroy(error, callback) {
       if (error && !postgres.stdin.destroyed) postgres.stdin.destroy(error);
