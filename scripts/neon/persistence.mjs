@@ -245,7 +245,7 @@ async function uploadSnapshotDump(sqliteFile) {
       // Do not terminate COPY (and therefore do not commit the row) until sqlite3
       // has confirmed that the complete dump was produced successfully.
       dumpDone.then(
-        () => postgres.stdin.end("\\n\\\\.\\n", callback),
+        () => postgres.stdin.end("\n\\.\n", callback),
         (error) => {
           postgres.stdin.destroy();
           callback(error);
