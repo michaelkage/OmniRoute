@@ -55,7 +55,7 @@ test("streaming base64 encoder preserves payload across arbitrary chunk boundari
 
 test("streaming base64 decoder handles arbitrary chunks and COPY newlines", async () => {
   const payload = Buffer.from("snapshot restore across chunk boundaries");
-  const encoded = Buffer.from(payload.toString("base64") + "\\n");
+  const encoded = Buffer.from(payload.toString("base64") + "\n");
   const chunks = [];
   for (let i = 0; i < encoded.length; i += 5) chunks.push(encoded.subarray(i, i + 5));
   const output = [];
