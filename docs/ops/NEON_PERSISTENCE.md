@@ -104,7 +104,8 @@ multi-instance design is implemented separately.
 - The snapshot payload contains the full SQLite dump, including encrypted credential fields and
   all other database content. Treat access to the Neon table as access to the application data.
 - The helper refuses SQLite files larger than OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES (default 16 MiB,
-  hard maximum 64 MiB). Raise the configured value only after checking Neon storage and runtime limits.
+  hard maximum 64 MiB). Cold restore additionally caps expanded SQL staging at 256 MiB on disk
+  before streaming it into SQLite. Raise the SQLite limit only after checking Neon storage and runtime limits.
 - GitHub Pages can host static assets and docs; it cannot run the Node.js backend or safely
   hold DATABASE_URL.
 
