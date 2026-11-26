@@ -103,12 +103,14 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-apt-cache,targe
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-# Workspace package manifests MUST be present before `npm ci` so npm materializes
-# the workspace and installs its *workspace-only* deps (e.g. safe-regex,
-# @toon-format/toon — declared in open-sse/package.json, not hoisted to root).
-# Without this, `npm ci` skips them and the application build fails with "Module not
-# found" (root cause of the v3.8.39 Docker build break). workspaces = ["open-sse"].
+# Every npm workspace manifest must exist before `npm ci`. npm resolves local
+# workspace dependencies from these manifests; omitting one makes npm treat the
+# dependency as a public registry package (for example, @omniroute/contracts@0.1.0).
+# Keep this list aligned with the root package.json workspaces array.
 COPY open-sse/package.json ./open-sse/package.json
+COPY packages/browser-pool/package.json ./packages/browser-pool/package.json
+COPY packages/ui-kit/package.json ./packages/ui-kit/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY scripts/build/postinstall.mjs ./scripts/build/postinstall.mjs
 COPY scripts/build/postinstallSupport.mjs ./scripts/build/postinstallSupport.mjs
 COPY scripts/build/native-binary-compat.mjs ./scripts/build/native-binary-compat.mjs
