@@ -27,7 +27,7 @@ services:
       - key: OMNIROUTE_NEON_SNAPSHOT_RETENTION
         value: "3"
       - key: OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES
-        value: "16777216"
+        value: "67108864"
       - key: OMNIROUTE_NEON_HELPER_MEMORY_MB
         value: "64"
       - key: JWT_SECRET
