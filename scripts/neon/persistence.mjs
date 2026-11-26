@@ -164,7 +164,7 @@ function captureTail(stream, limit = 64 * 1024) {
 }
 
 /** Base64 encoder that retains at most two bytes between chunks. */
-function createBase64Encoder() {
+export function createBase64Encoder() {
   let carry = Buffer.alloc(0);
   return new Transform({
     transform(chunk, _encoding, callback) {
