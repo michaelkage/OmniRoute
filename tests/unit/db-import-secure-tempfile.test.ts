@@ -12,7 +12,7 @@ const ORIGINAL_ENV = {
   OMNIROUTE_DB_IMPORT_MAX_MB: process.env.OMNIROUTE_DB_IMPORT_MAX_MB,
 };
 process.env.DATA_DIR = TEST_DATA_DIR;
-process.env.OMNIROUTE_DB_IMPORT_MAX_MB = "1";
+process.env.OMNIROUTE_DB_IMPORT_MAX_MB = "32";
 
 const { stageUpload } = await import("../../src/app/api/db-backups/import/route.ts");
 
@@ -91,7 +91,9 @@ test("rejects oversized chunked uploads before consuming the complete request", 
     },
   });
 
+  process.env.OMNIROUTE_DB_IMPORT_MAX_MB = "1";
   const response = await stageUpload(makeRequest(stream));
+  process.env.OMNIROUTE_DB_IMPORT_MAX_MB = "32";
   assert.ok(response instanceof Response);
   assert.equal(response.status, 413);
   assert.ok(sent < total, "the route consumed the complete oversized body");
