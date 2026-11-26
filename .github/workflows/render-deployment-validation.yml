@@ -1,0 +1,61 @@
+name: Render import, Neon recovery, and deployment validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/render-free-deployment
+    paths:
+      - "src/app/api/db-backups/import/**"
+      - "src/lib/neonPersistence.ts"
+      - "scripts/neon/**"
+      - "tests/unit/db-import-*.test.ts"
+      - "tests/unit/neon-persistence.test.mjs"
+      - "render.yaml"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/render-deployment-validation.yml"
+permissions:
+  contents: read
+
+concurrency:
+  group: render-deployment-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  import-and-persistence:
+    name: Import and Neon persistence regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Neon helper syntax
+        run: node --check scripts/neon/persistence.mjs
+
+      - name: Test streamed database import and Neon persistence
+        run: >-
+          node --max-old-space-size=4096
+          --import tsx/esm
+          --import ./open-sse/utils/setupPolyfill.ts
+          --import ./tests/_setup/isolateDataDir.ts
+          --test --test-force-exit --test-concurrency=2
+          tests/unit/db-import-secure-tempfile.test.ts
+          tests/unit/db-import-chunked-body-limit.test.ts
+          tests/unit/db-import-dry-run.test.ts
+          tests/unit/neon-persistence.test.mjs
+          tests/unit/neon-persistence-process.test.mjs
+
+      - name: Build production application
+        run: npm run build:fast

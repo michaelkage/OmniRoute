@@ -15,7 +15,7 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-db-import
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.OMNIROUTE_DB_IMPORT_MAX_MB = "1";
 
-const { readUpload } = await import("../../src/app/api/db-backups/import/route.ts");
+const { stageUpload } = await import("../../src/app/api/db-backups/import/route.ts");
 
 test.after(() => {
   try {
@@ -51,7 +51,7 @@ test("the fixture really has no Content-Length", () => {
 
 test("a chunked body over the configured limit is refused with 413", async () => {
   const chunk = new Uint8Array(800 * 1024);
-  const result = await readUpload(chunkedRequest([chunk, chunk]));
+  const result = await stageUpload(chunkedRequest([chunk, chunk]));
 
   assert.equal(result instanceof Response, true, "expected a rejection, got an accepted upload");
   const response = result as Response;
@@ -60,15 +60,17 @@ test("a chunked body over the configured limit is refused with 413", async () =>
 });
 
 test("a chunked body inside the limit is accepted", async () => {
-  const result = await readUpload(chunkedRequest([new Uint8Array(4096)]));
+  const result = await stageUpload(chunkedRequest([new Uint8Array(4096)]));
 
   assert.equal(result instanceof Response, false);
-  assert.equal((result as { fileBuffer: Buffer }).fileBuffer.byteLength, 4096);
-  assert.equal((result as { fileName: string }).fileName, "import.sqlite");
+  const upload = result as { fileSize: number; fileName: string; tmpDir: string };
+  assert.equal(upload.fileSize, 4096);
+  assert.equal(upload.fileName, "import.sqlite");
+  fs.rmSync(upload.tmpDir, { recursive: true, force: true });
 });
 
 test("an empty chunked body is a 400, not a 413", async () => {
-  const result = await readUpload(chunkedRequest([]));
+  const result = await stageUpload(chunkedRequest([]));
 
   assert.equal(result instanceof Response, true);
   assert.equal((result as Response).status, 400);

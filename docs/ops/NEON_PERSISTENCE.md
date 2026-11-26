@@ -83,7 +83,7 @@ the PM2 process before applying the snapshot.
 
 - Default cadence: 5 minutes; minimum: 1 minute.
 - Default retention: 12 snapshots; supported range: 1-100.
-- Snapshots use SQLite's online .backup command, then dump and gzip the consistent backup.
+- Snapshots use SQLite's online .backup command, then stream the SQL dump through gzip and base64 directly into PostgreSQL COPY. The dump and compressed payload are not materialized as whole-file buffers.
 - Snapshot failures return a non-zero exit code in manual/workflow operations and are logged
   as non-fatal during periodic runtime operation.
 - The expected recovery-point objective is approximately one snapshot interval, plus the time
@@ -103,6 +103,9 @@ multi-instance design is implemented separately.
   encryption to the snapshot payload. Restrict database access and use a dedicated Neon role.
 - The snapshot payload contains the full SQLite dump, including encrypted credential fields and
   all other database content. Treat access to the Neon table as access to the application data.
+- The helper refuses SQLite files larger than OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES (default 16 MiB,
+  hard maximum 64 MiB). Cold restore additionally caps expanded SQL staging at 256 MiB on disk
+  before streaming it into SQLite. Raise the SQLite limit only after checking Neon storage and runtime limits.
 - GitHub Pages can host static assets and docs; it cannot run the Node.js backend or safely
   hold DATABASE_URL.
 
