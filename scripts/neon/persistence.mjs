@@ -304,7 +304,7 @@ export function createBase64Decoder() {
   let carry = "";
   return new Transform({
     transform(chunk, _encoding, callback) {
-      const input = carry + chunk.toString("ascii").replace(/\\s+/g, "");
+      const input = carry + chunk.toString("ascii").replace(/\s+/g, "");
       const completeLength = input.length - (input.length % 4);
       if (completeLength) this.push(Buffer.from(input.slice(0, completeLength), "base64"));
       carry = input.slice(completeLength);
