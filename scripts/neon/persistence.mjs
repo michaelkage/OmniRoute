@@ -300,7 +300,7 @@ function fsyncFile(filePath) {
 }
 
 /** Decode a streamed base64 COPY result without buffering the stored payload. */
-function createBase64Decoder() {
+export function createBase64Decoder() {
   let carry = "";
   return new Transform({
     transform(chunk, _encoding, callback) {
