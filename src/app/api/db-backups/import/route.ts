@@ -21,12 +21,10 @@ import { getSettings } from "@/lib/db/settings";
 import { setSystemPromptConfig } from "@omniroute/open-sse/services/systemPrompt.ts";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { snapshotNeonPersistenceNow } from "@/lib/neonPersistence";
-import {
-} from "@/shared/middleware/bodySizeGuard";
 
 const DEFAULT_MAX_UPLOAD_MB = 100;
 // Hard ceiling so a misconfigured/hostile value can't ask the route to buffer an
-// unbounded file into memory.
+// unbounded file from being accepted.
 const MAX_UPLOAD_MB_CEILING = 4096;
 
 /**
@@ -188,9 +186,8 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
   // Close and reset current DB connection
   resetDbInstance();
 
-  // Remove main file and WAL sidecars
+  // Remove WAL sidecars after closing SQLite. The main database is replaced atomically below.
   const sqliteFilesToReplace = [
-    SQLITE_FILE,
     `${SQLITE_FILE}-wal`,
     `${SQLITE_FILE}-shm`,
     `${SQLITE_FILE}-journal`,
