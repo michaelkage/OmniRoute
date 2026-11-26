@@ -17,6 +17,7 @@ on:
       - ".github/workflows/render-deployment-validation.yml"
   push:
     branches:
+      - fix/render-streamed-db-import
       - feature/render-free-deployment
     paths:
       - "src/app/api/db-backups/import/**"
