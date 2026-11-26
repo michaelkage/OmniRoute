@@ -211,6 +211,26 @@ async function uploadSnapshotDump(sqliteFile) {
   void postgresDone.catch(() => {});
 
   let encodedBytes = 0;
+  let destination;
+  let inputFailure;
+  let finalizingCopy = false;
+
+  const failDestination = (error) => {
+    inputFailure = error;
+    if (destination && !destination.destroyed) destination.destroy(error);
+  };
+  const onInputError = (error) => failDestination(error);
+  const onInputClose = () => {
+    if (!finalizingCopy) {
+      failDestination(new Error("PostgreSQL COPY input closed unexpectedly."));
+    }
+  };
+
+  // Keep listeners attached for the entire COPY lifecycle. A child can close stdin
+  // asynchronously after write() returns true; per-write listeners miss that race.
+  postgres.stdin.on("error", onInputError);
+  postgres.stdin.on("close", onInputClose);
+
   const meter = new Transform({
     transform(chunk, _encoding, callback) {
       encodedBytes += chunk.length;
@@ -218,34 +238,33 @@ async function uploadSnapshotDump(sqliteFile) {
     },
   });
 
-  const destination = new Writable({
+  destination = new Writable({
     write(chunk, _encoding, callback) {
+      if (inputFailure) {
+        callback(inputFailure);
+        return;
+      }
       if (postgres.stdin.destroyed || postgres.stdin.writableEnded) {
         callback(new Error("PostgreSQL COPY input closed before the snapshot finished."));
         return;
       }
-      let settled = false;
-      const finish = (error) => {
-        if (settled) return;
-        settled = true;
-        postgres.stdin.removeListener("error", onError);
-        postgres.stdin.removeListener("drain", onDrain);
-        postgres.stdin.removeListener("close", onClose);
-        callback(error);
-      };
-      const onError = (error) => finish(error);
-      const onDrain = () => finish();
-      const onClose = () => finish(new Error("PostgreSQL COPY input closed unexpectedly."));
-      postgres.stdin.once("error", onError);
-      postgres.stdin.once("close", onClose);
-      if (postgres.stdin.write(chunk)) finish();
-      else postgres.stdin.once("drain", onDrain);
+      // Writable's per-chunk callback provides backpressure and propagates EPIPE.
+      postgres.stdin.write(chunk, (error) => {
+        callback(error || inputFailure || undefined);
+      });
     },
     final(callback) {
       // Do not terminate COPY (and therefore do not commit the row) until sqlite3
       // has confirmed that the complete dump was produced successfully.
       dumpDone.then(
-        () => postgres.stdin.end("\n\\.\n", callback),
+        () => {
+          if (inputFailure) {
+            callback(inputFailure);
+            return;
+          }
+          finalizingCopy = true;
+          postgres.stdin.end("\n\\.\n", (error) => callback(error || inputFailure || undefined));
+        },
         (error) => {
           postgres.stdin.destroy();
           callback(error);
@@ -253,8 +272,7 @@ async function uploadSnapshotDump(sqliteFile) {
       );
     },
     destroy(error, callback) {
-      // The pipeline already owns the error; destroy stdin without re-emitting it
-      // on a pipe that may no longer have a listener.
+      // The pipeline owns the error; close stdin without emitting a second one.
       if (!postgres.stdin.destroyed) postgres.stdin.destroy();
       callback(error);
     },
@@ -278,6 +296,8 @@ async function uploadSnapshotDump(sqliteFile) {
     await Promise.allSettled([dumpDone, postgresDone]);
     throw error;
   } finally {
+    postgres.stdin.removeListener("error", onInputError);
+    postgres.stdin.removeListener("close", onInputClose);
     clearTimeout(timeout);
   }
 }
