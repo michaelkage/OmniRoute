@@ -23,8 +23,7 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { snapshotNeonPersistenceNow } from "@/lib/neonPersistence";
 
 const DEFAULT_MAX_UPLOAD_MB = 100;
-// Hard ceiling so a misconfigured/hostile value can't ask the route to buffer an
-// unbounded file from being accepted.
+// Hard ceiling so a misconfigured value cannot permit an unbounded disk upload.
 const MAX_UPLOAD_MB_CEILING = 4096;
 
 /**
@@ -50,7 +49,7 @@ const REQUIRED_TABLES = ["provider_connections", "provider_nodes", "combos", "ap
 
 const DRY_RUN_TRUE = /^(1|true|yes)$/i;
 
-/** `dryRun` is read from the query string or, for multipart uploads, a form field. */
+/** `dryRun` is read from the query string. */
 export function isDryRunValue(value: unknown): boolean {
   return typeof value === "string" && DRY_RUN_TRUE.test(value.trim());
 }
@@ -181,7 +180,10 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
   // Take the pre-import snapshot and wait for it to finish. It is mandatory (routine
   // backup switches and the hourly throttle do not apply), and a failure aborts the
   // import before any live data is touched.
-  await backupDbFileAwaited("pre-import", { mandatory: true });
+  const preImportBackup = await backupDbFileAwaited("pre-import", { mandatory: true });
+  if (!preImportBackup) {
+    throw new Error("Mandatory pre-import backup could not be created; database replacement was aborted.");
+  }
 
   // Close and reset current DB connection
   resetDbInstance();
@@ -244,11 +246,12 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
 /**
  * POST /api/db-backups/import — Upload a .sqlite file to replace the current database.
  *
- * Accepts multipart/form-data with a single "file" field containing the .sqlite backup,
- * or the raw file bytes (`?filename=` names it). Validates integrity, schema, and required
- * tables before replacing the active database.
+ * Accepts a raw `application/octet-stream` request body streamed directly to a private
+ * staging file (`?filename=` names it). Multipart is rejected because FormData parsing
+ * buffers the complete upload. Validates integrity, schema, and required tables before
+ * replacing the active database.
  *
- * `dryRun=true` (query string, or a multipart `dryRun` field) runs the same validation and
+ * `dryRun=true` runs the same validation and
  * returns what WOULD be imported, without the pre-import backup or touching the live
  * database.
  *
