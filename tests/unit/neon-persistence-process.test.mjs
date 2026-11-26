@@ -50,6 +50,11 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 
 if (args.includes("--version")) {
+  fs.writeFileSync(process.env.FAKE_PSQL_COPY_RESULT, JSON.stringify({
+    started: false,
+    terminated: false,
+    committed: false,
+  }));
   process.stdout.write("psql test stub\n");
 } else {
   const commands = [];
@@ -59,6 +64,12 @@ if (args.includes("--version")) {
   if (commands.some((command) => command.startsWith("COPY (SELECT payload FROM"))) {
     process.stdout.write(process.env.FAKE_PSQL_PAYLOAD || "");
   } else if (commands.some((command) => command.startsWith("\\copy "))) {
+    fs.writeFileSync(process.env.FAKE_PSQL_COPY_RESULT, JSON.stringify({
+      started: true,
+      terminated: false,
+      committed: false,
+      commands,
+    }));
     const capture = fs.createWriteStream(process.env.FAKE_PSQL_COPY_CAPTURE);
     let tail = Buffer.alloc(0);
     process.stdin.on("data", (chunk) => {
