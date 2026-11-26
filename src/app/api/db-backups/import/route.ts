@@ -108,7 +108,7 @@ export async function stageUpload(request: Request): Promise<Upload | Response> 
       limiter,
       fs.createWriteStream(tmpPath, { flags: "wx", mode: 0o600 })
     );
-    const stagedFd = fs.openSync(tmpPath, "r");
+    const stagedFd = fs.openSync(tmpPath, "r+");
     try {
       fs.fsyncSync(stagedFd);
     } finally {
