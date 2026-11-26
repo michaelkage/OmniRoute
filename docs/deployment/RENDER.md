@@ -43,7 +43,8 @@ local checkout, shell session, or hand-written environment configuration is requ
 The Neon snapshot helper streams SQLite dumps, compression, Base64 transfer, restore
 decoding and SQLite reconstruction. It avoids loading the complete database or SQL dump
 into Node.js memory. The configured snapshot database-file ceiling is 64 MiB; databases
-larger than that are refused rather than risking an out-of-memory restart.
+larger than that are refused rather than risking an out-of-memory restart. Cold restore also
+caps expanded SQL staging at 256 MiB on disk, then streams that file into SQLite.
 
 ## Verify the deployment
 
