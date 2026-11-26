@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: omniroute
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /tmp/omniroute-data
+      - key: REQUIRE_API_KEY
+        value: "true"
+      - key: OMNIROUTE_MEMORY_MB
+        value: "256"
+      - key: OMNI_MAX_CONCURRENT_CONNECTIONS
+        value: "8"
+      - key: OMNIROUTE_NEON_PERSISTENCE
+        value: "1"
+      - key: OMNIROUTE_NEON_SNAPSHOT_INTERVAL_MS
+        value: "600000"
+      - key: OMNIROUTE_NEON_SNAPSHOT_RETENTION
+        value: "3"
+      - key: OMNIROUTE_NEON_MAX_SNAPSHOT_BYTES
+        value: "67108864"
+      - key: OMNIROUTE_NEON_HELPER_MEMORY_MB
+        value: "64"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: API_KEY_SECRET
+        generateValue: true
+      - key: INITIAL_PASSWORD
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

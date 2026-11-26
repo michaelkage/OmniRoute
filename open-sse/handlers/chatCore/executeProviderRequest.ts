@@ -9,6 +9,7 @@ import type {
  */
 import { markEmptyTurnExecution, inheritEmptyTurnPolicy } from "../../utils/emptyTurnPolicy.ts";
 import { noteUpstreamDispatch } from "../../utils/proxyFetch.ts";
+import { executeOpenAiWithCredentialLease } from "./credentialLeaseExecution.ts";
 
 import type { BaseExecutor } from "../../executors/base.ts";
 import type { AgentGoalPolicy } from "../../utils/agentGoalPolicy.ts";
@@ -411,7 +412,7 @@ export async function executeProviderRequest(
                   execute: (signal) =>
                     runWithCapture(providerRequestCapture, () => {
                       noteUpstreamDispatch();
-                      return executor.execute({
+                      return executeOpenAiWithCredentialLease(provider, executor, {
                         model: modelToCall,
                         body: bodyToSend,
                         stream: upstreamStream,
@@ -622,7 +623,7 @@ export async function executeProviderRequest(
                       execute: (signal) =>
                         runWithCapture(providerRequestCapture, () => {
                           noteUpstreamDispatch();
-                          return executor.execute({
+                          return executeOpenAiWithCredentialLease(provider, executor, {
                             model: modelToCall,
                             body,
                             stream: upstreamStream,

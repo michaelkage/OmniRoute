@@ -625,7 +625,41 @@ export async function registerNodejs(): Promise<void> {
   // failed (#7288 / #7494). ensureDbInitialized() itself is idempotent and
   // caches the singleton, so every later getDbInstance() call below is a
   // free no-op re-read of the same connection — no double-init cost.
+  // Restore a missing local SQLite database from Neon before the DB adapter opens it.
+  // The feature is explicitly opt-in and remains non-applicable to cloud runtimes.
+  const { restoreNeonPersistenceIfNeeded, startNeonPersistence } =
+    await import("@/lib/neonPersistence");
+  await restoreNeonPersistenceIfNeeded();
+
   await ensureDbReadyForBoot();
+  startNeonPersistence();
+
+  // Register the database-backed credential resolver only after SQLite has
+  // completed boot initialization. OAuth refresh reuses the exact same
+  // connection proxy cascade as inference and quota fetches.
+  const [
+    { createProductionCredentialResolver },
+    { configureCredentialResolutionPort },
+  ] = await Promise.all([
+    import("@/lib/credentials/providerCredentialResolver"),
+    import("@omniroute/open-sse/services/credentialResolution.ts"),
+  ]);
+  configureCredentialResolutionPort(
+    createProductionCredentialResolver({
+      resolveProxy: async (connection) => {
+        const { resolveProxyForConnection } = await import("@/lib/db/settings");
+        const resolved = await resolveProxyForConnection(
+          connection.id,
+          undefined,
+          connection.provider,
+        );
+        return resolved?.proxy ?? null;
+      },
+      logger: console,
+    }),
+  );
+  console.log("[STARTUP] Database-backed credential resolution registered");
+
 
   await ensureSecrets();
   await Promise.all([
@@ -734,6 +768,10 @@ export async function registerNodejs(): Promise<void> {
     console.log("[STARTUP] Quota cache background refresh started");
     startProviderLimitsSyncScheduler();
     console.log("[STARTUP] Provider limits sync scheduler started");
+    const { startFreeModelDiscoveryScheduler } =
+      await import("@/lib/freeModelDiscovery/scheduler");
+    startFreeModelDiscoveryScheduler();
+    console.log("[STARTUP] Free-model discovery scheduler started");
     const { startQuotaSessionRecovery } = await import("@/lib/quota/quotaSessionRecovery");
     startQuotaSessionRecovery();
     console.log("[STARTUP] Quota session recovery scheduler started (opt-in)");

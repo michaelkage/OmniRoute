@@ -2,7 +2,7 @@
 // import --dry-run` sent `?dryRun=true`, but the route never read it — so a "dry run"
 // replaced the operator's database (data loss). These tests drive the real route handler
 // against an isolated DATA_DIR and pin:
-//   - `dryRun=true` (query or multipart field) validates the upload and reports what WOULD be
+//   - `dryRun=true` validates the streamed upload and reports what WOULD be
 //     imported, but leaves the live database byte-for-byte untouched;
 //   - an invalid upload in dry-run mode is still a 400, with no side effect;
 //   - a real import (no dryRun) keeps replacing the database, as before;
@@ -16,7 +16,6 @@ import os from "node:os";
 import path from "node:path";
 import {
   createManagementSessionHeaders,
-  makeManagementSessionRequest,
 } from "../helpers/managementSession.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-db-import-dry-run-"));
@@ -109,20 +108,18 @@ test("dryRun=true validates the upload but leaves the live database untouched", 
   assert.equal(liveDbHash(), before, "live database file must be byte-for-byte unchanged");
 });
 
-test("dryRun as a multipart form field is honoured too", async () => {
+test("multipart uploads are rejected rather than buffered", async () => {
   const before = liveDbHash();
   const form = new FormData();
   form.append("file", new File([CANDIDATE_BYTES], "candidate.sqlite"));
   form.append("dryRun", "true");
 
+  const headers = await createManagementSessionHeaders();
   const response = await importRoute.POST(
-    await makeManagementSessionRequest(IMPORT_URL, { method: "POST", body: form })
+    new Request(IMPORT_URL, { method: "POST", headers, body: form })
   );
-  const body = await response.json();
 
-  assert.equal(response.status, 200, JSON.stringify(body));
-  assert.equal(body.dryRun, true);
-  assert.equal(body.filename, "candidate.sqlite");
+  assert.equal(response.status, 415);
   assert.ok(apiKeyNames().includes(LIVE_SENTINEL));
   assert.equal(liveDbHash(), before);
 });

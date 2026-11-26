@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import path from "path";
 import fs from "fs";
-import os from "os";
 import { getDbInstance, resetDbInstance, SQLITE_FILE } from "@/lib/db/core";
 import { openDatabaseAsync } from "@/lib/db/adapters/driverFactory";
 import type { SqliteAdapter } from "@/lib/db/adapters/types";
@@ -19,14 +20,10 @@ import {
 import { getSettings } from "@/lib/db/settings";
 import { setSystemPromptConfig } from "@omniroute/open-sse/services/systemPrompt.ts";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import {
-  readRequestBodyWithLimit,
-  RequestBodyTooLargeError,
-} from "@/shared/middleware/bodySizeGuard";
+import { snapshotNeonPersistenceNow } from "@/lib/neonPersistence";
 
 const DEFAULT_MAX_UPLOAD_MB = 100;
-// Hard ceiling so a misconfigured/hostile value can't ask the route to buffer an
-// unbounded file into memory.
+// Hard ceiling so a misconfigured value cannot permit an unbounded disk upload.
 const MAX_UPLOAD_MB_CEILING = 4096;
 
 /**
@@ -52,7 +49,7 @@ const REQUIRED_TABLES = ["provider_connections", "provider_nodes", "combos", "ap
 
 const DRY_RUN_TRUE = /^(1|true|yes)$/i;
 
-/** `dryRun` is read from the query string or, for multipart uploads, a form field. */
+/** `dryRun` is read from the query string. */
 export function isDryRunValue(value: unknown): boolean {
   return typeof value === "string" && DRY_RUN_TRUE.test(value.trim());
 }
@@ -61,42 +58,74 @@ function badRequest(error: string): Response {
   return NextResponse.json({ error }, { status: 400 });
 }
 
-type Upload = { fileBuffer: Buffer; fileName: string; dryRun: boolean };
+type Upload = { tmpDir: string; tmpPath: string; fileName: string; dryRun: boolean; fileSize: number };
 
-export async function readUpload(request: Request): Promise<Upload | Response> {
+class UploadTooLargeError extends Error {
+  constructor() {
+    super("Database upload exceeds the configured size limit.");
+    this.name = "UploadTooLargeError";
+  }
+}
+
+/** Stream the raw SQLite request body directly to a private file beside the live DB. */
+export async function stageUpload(request: Request): Promise<Upload | Response> {
   const url = new URL(request.url);
   const queryDryRun = isDryRunValue(url.searchParams.get("dryRun"));
-  const contentType = request.headers.get("content-type") || "";
+  const contentType = (request.headers.get("content-type") || "").toLowerCase();
 
-  if (contentType.includes("multipart/form-data")) {
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    if (!file) return badRequest("No file provided. Upload a .sqlite file.");
-    return {
-      fileBuffer: Buffer.from(await file.arrayBuffer()),
-      fileName: file.name,
-      dryRun: queryDryRun || isDryRunValue(formData.get("dryRun")),
-    };
+  if (!contentType.startsWith("application/octet-stream")) {
+    return NextResponse.json(
+      { error: "Upload the .sqlite file as application/octet-stream; multipart uploads are not supported." },
+      { status: 415 }
+    );
   }
+  if (!request.body) return badRequest("No file content provided.");
+  if (!SQLITE_FILE) return NextResponse.json({ error: "SQLite storage is unavailable." }, { status: 503 });
 
-  // Direct binary transfer to bypass Reverse Proxy / Next.js FormData parsing errors under chunked encoding (Bug #770)
-  // Counted while streaming: a body without Content-Length skips the pipeline's
-  // header check entirely, so this branch still needs a real ceiling.
-  let buffer: Uint8Array;
+  const fileName = path.basename(url.searchParams.get("filename") || "import.sqlite");
+  if (!fileName.endsWith(".sqlite")) {
+    return badRequest("Invalid file type. Only .sqlite files are accepted.");
+  }
+  const tmpDir = fs.mkdtempSync(path.join(path.dirname(SQLITE_FILE), ".omniroute-import-"));
+  const tmpPath = path.join(tmpDir, "import.sqlite");
+  const maxBytes = resolveMaxUploadSizeBytes();
+  let fileSize = 0;
+
   try {
-    buffer = await readRequestBodyWithLimit(request, resolveMaxUploadSizeBytes());
-  } catch (error) {
-    if (error instanceof RequestBodyTooLargeError) {
-      return tooLargeResponse();
+    const limiter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        fileSize += chunk.length;
+        if (fileSize > maxBytes) {
+          callback(new UploadTooLargeError());
+          return;
+        }
+        callback(null, chunk);
+      },
+    });
+
+    await pipeline(
+      Readable.fromWeb(request.body as import("node:stream/web").ReadableStream<Uint8Array>),
+      limiter,
+      fs.createWriteStream(tmpPath, { flags: "wx", mode: 0o600 })
+    );
+    const stagedFd = fs.openSync(tmpPath, "r+");
+    try {
+      fs.fsyncSync(stagedFd);
+    } finally {
+      fs.closeSync(stagedFd);
     }
+  } catch (error) {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (error instanceof UploadTooLargeError) return tooLargeResponse();
     throw error;
   }
-  if (buffer.byteLength === 0) return badRequest("No file content provided.");
-  return {
-    fileBuffer: Buffer.from(buffer),
-    fileName: url.searchParams.get("filename") || "import.sqlite",
-    dryRun: queryDryRun,
-  };
+
+  if (fileSize === 0) {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    return badRequest("No file content provided.");
+  }
+
+  return { tmpDir, tmpPath, fileName, dryRun: queryDryRun, fileSize };
 }
 
 function tooLargeResponse(): Response {
@@ -160,14 +189,18 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
   // Take the pre-import snapshot and wait for it to finish. It is mandatory (routine
   // backup switches and the hourly throttle do not apply), and a failure aborts the
   // import before any live data is touched.
-  await backupDbFileAwaited("pre-import", { mandatory: true });
+  const preImportBackup = await backupDbFileAwaited("pre-import", { mandatory: true });
+  if (!preImportBackup) {
+    throw new Error(
+      "Mandatory pre-import backup could not be created; database replacement was aborted."
+    );
+  }
 
   // Close and reset current DB connection
   resetDbInstance();
 
-  // Remove main file and WAL sidecars
+  // Remove WAL sidecars after closing SQLite. The main database is replaced atomically below.
   const sqliteFilesToReplace = [
-    SQLITE_FILE,
     `${SQLITE_FILE}-wal`,
     `${SQLITE_FILE}-shm`,
     `${SQLITE_FILE}-journal`,
@@ -180,8 +213,18 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
     await unlinkFileWithRetry(filePath);
   }
 
-  // Copy imported file over current DB
-  fs.copyFileSync(tmpPath, SQLITE_FILE!);
+  // Atomic same-filesystem replacement: staged file is beside SQLITE_FILE.
+  fs.renameSync(tmpPath, SQLITE_FILE!);
+  try {
+    const directoryFd = fs.openSync(path.dirname(SQLITE_FILE!), "r");
+    try {
+      fs.fsyncSync(directoryFd);
+    } finally {
+      fs.closeSync(directoryFd);
+    }
+  } catch {
+    // Some platforms do not permit fsync on directory handles; the rename remains atomic.
+  }
 
   // Reopen and verify
   getDbInstance();
@@ -202,8 +245,20 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
     // non-fatal: import succeeded; system prompt will hydrate on next restart
   }
 
+  let neonSnapshot: "saved" | "disabled" | "failed" = "disabled";
+  try {
+    neonSnapshot = (await snapshotNeonPersistenceNow()) ? "saved" : "disabled";
+  } catch (error) {
+    neonSnapshot = "failed";
+    console.error(
+      "[NEON] immediate post-import snapshot failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+
   return NextResponse.json({
     imported: true,
+    neonSnapshot,
     filename: fileName,
     connectionCount: connCount,
     nodeCount,
@@ -215,12 +270,13 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
 /**
  * POST /api/db-backups/import — Upload a .sqlite file to replace the current database.
  *
- * Accepts multipart/form-data with a single "file" field containing the .sqlite backup,
- * or the raw file bytes (`?filename=` names it). Validates integrity, schema, and required
- * tables before replacing the active database.
+ * Accepts a raw `application/octet-stream` request body streamed directly to a private
+ * staging file (`?filename=` names it). Multipart is rejected because FormData parsing
+ * buffers the complete upload. Validates integrity, schema, and required tables before
+ * replacing the active database.
  *
- * `dryRun=true` (query string, or a multipart `dryRun` field) runs the same validation and
- * returns what WOULD be imported, without the pre-import backup or touching the live
+ * `dryRun=true` runs the same validation and returns what WOULD be imported, without the
+ * pre-import backup or touching the live
  * database.
  *
  * 🔒 Operator-only: dashboard session, the machine-bound local CLI credential (so
@@ -234,24 +290,15 @@ export async function POST(request: Request) {
     forbiddenMessage: CREDENTIAL_IMPORT_FORBIDDEN_MESSAGE,
   });
   if (operatorVerdict.ok === false) return operatorVerdict.response;
-  let tmpDir: string | null = null;
 
+  let upload: Upload | Response | null = null;
   try {
-    const upload = await readUpload(request);
+    upload = await stageUpload(request);
     if (upload instanceof Response) return upload;
-    const { fileBuffer, fileName, dryRun } = upload;
+    const { tmpPath, fileName, dryRun, fileSize } = upload;
 
-    const shapeError = validateUploadShape(fileName, fileBuffer.length);
+    const shapeError = validateUploadShape(fileName, fileSize);
     if (shapeError) return shapeError;
-
-    // Stage the upload in a fresh private directory (mkdtemp: random name, mode 0700),
-    // like the export routes. A fixed name under the shared tmpdir could be guessed and
-    // pre-created or symlinked by another local user; "wx" refuses to reuse or follow
-    // anything already at the final path component, and 0600 keeps the copied
-    // credentials private.
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-import-"));
-    const tmpPath = path.join(tmpDir, "import.sqlite");
-    fs.writeFileSync(tmpPath, fileBuffer, { mode: 0o600, flag: "wx" });
 
     const summary = await inspectCandidate(tmpPath);
     if (summary instanceof Response) return summary;
@@ -262,7 +309,7 @@ export async function POST(request: Request) {
         valid: true,
         imported: false,
         filename: fileName,
-        sizeBytes: fileBuffer.length,
+        sizeBytes: fileSize,
         connectionCount: summary.connCount,
         nodeCount: summary.nodeCount,
         comboCount: summary.comboCount,
@@ -276,13 +323,8 @@ export async function POST(request: Request) {
     console.error("[API] Error importing database:", error);
     return NextResponse.json({ error: sanitizeErrorMessage(error) }, { status: 500 });
   } finally {
-    // Remove the staging directory and everything in it.
-    if (tmpDir) {
-      try {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {
-        /* best effort */
-      }
+    if (upload && !(upload instanceof Response)) {
+      fs.rmSync(upload.tmpDir, { recursive: true, force: true });
     }
   }
 }
