@@ -17,11 +17,11 @@ const path = require("node:path");
 const args = process.argv.slice(2);
 
 if (args[0] === "--version") {
-  process.stdout.write("sqlite3 test stub\\n");
+  process.stdout.write("sqlite3 test stub\n");
 } else if (args[1] && args[1].startsWith(".backup ")) {
-  const match = args[1].match(/^\\.backup '(.+)'$/);
+  const match = args[1].match(/^\.backup '(.+)'$/);
   if (!match) {
-    process.stderr.write("invalid backup command\\n");
+    process.stderr.write("invalid backup command\n");
     process.exitCode = 2;
   } else {
     fs.copyFileSync(args[0], match[1]);
@@ -32,7 +32,7 @@ if (args[0] === "--version") {
   process.stdout.write(failAfter > 0 ? value.subarray(0, failAfter) : value);
   if (failAfter > 0) process.exitCode = 23;
 } else if (args[1] === "PRAGMA integrity_check;") {
-  process.stdout.write("ok\\n");
+  process.stdout.write("ok\n");
 } else if (args.length === 1) {
   const sqlCapture = fs.createWriteStream(process.env.FAKE_RESTORE_SQL_CAPTURE);
   process.stdin.pipe(sqlCapture);
@@ -50,7 +50,7 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 
 if (args.includes("--version")) {
-  process.stdout.write("psql test stub\\n");
+  process.stdout.write("psql test stub\n");
 } else {
   const commands = [];
   for (let i = 0; i < args.length - 1; i++) {
@@ -58,7 +58,7 @@ if (args.includes("--version")) {
   }
   if (commands.some((command) => command.startsWith("COPY (SELECT payload FROM"))) {
     process.stdout.write(process.env.FAKE_PSQL_PAYLOAD || "");
-  } else if (commands.some((command) => command.startsWith("\\\\copy "))) {
+  } else if (commands.some((command) => command.startsWith("\\copy "))) {
     const capture = fs.createWriteStream(process.env.FAKE_PSQL_COPY_CAPTURE);
     let tail = Buffer.alloc(0);
     process.stdin.on("data", (chunk) => {
@@ -66,7 +66,7 @@ if (args.includes("--version")) {
     });
     process.stdin.pipe(capture);
     capture.on("finish", () => {
-      const terminated = tail.equals(Buffer.from("\\n\\\\.\\n"));
+      const terminated = tail.equals(Buffer.from("\n\\.\n"));
       fs.writeFileSync(process.env.FAKE_PSQL_COPY_RESULT, JSON.stringify({
         terminated,
         committed: terminated && commands.includes("COMMIT"),
@@ -138,9 +138,9 @@ test("Neon snapshot streams a complete dump through gzip/Base64 and commits COPY
   ]);
 
   const copyText = fs.readFileSync(env.FAKE_PSQL_COPY_CAPTURE, "utf8");
-  const terminator = "\\n\\\\.\\n";
+  const terminator = "\n\\.\n";
   assert.ok(copyText.endsWith(terminator));
-  const encoded = copyText.slice(0, -terminator.length).replace(/\\s+/g, "");
+  const encoded = copyText.slice(0, -terminator.length).replace(/\s+/g, "");
   assert.equal(gunzipSync(Buffer.from(encoded, "base64")).toString("utf8"), SQL_FIXTURE);
   assert.deepEqual(leftoverFiles(data), []);
 });
@@ -160,7 +160,7 @@ test("a partial SQLite dump cannot publish a recovery snapshot and cleans its te
 
 test("cold restore streams Base64/gzip SQL into SQLite and atomically publishes the database", () => {
   const { data, env } = setupCase("restore-success");
-  env.FAKE_PSQL_PAYLOAD = gzipSync(Buffer.from(SQL_FIXTURE)).toString("base64") + "\\n";
+  env.FAKE_PSQL_PAYLOAD = gzipSync(Buffer.from(SQL_FIXTURE)).toString("base64") + "\n";
   const result = runHelper(env, "restore");
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
