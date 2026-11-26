@@ -16,22 +16,6 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/render-deployment-validation.yml"
-  push:
-    branches:
-      - fix/render-streamed-db-import
-      - feature/render-free-deployment
-    paths:
-      - "src/app/api/db-backups/import/**"
-      - "src/lib/neonPersistence.ts"
-      - "scripts/neon/**"
-      - "tests/unit/db-import-*.test.ts"
-      - "tests/unit/neon-persistence.test.mjs"
-      - "render.yaml"
-      - "Dockerfile"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/render-deployment-validation.yml"
-
 permissions:
   contents: read
 
