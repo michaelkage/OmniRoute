@@ -83,6 +83,9 @@ export async function stageUpload(request: Request): Promise<Upload | Response> 
   if (!SQLITE_FILE) return NextResponse.json({ error: "SQLite storage is unavailable." }, { status: 503 });
 
   const fileName = path.basename(url.searchParams.get("filename") || "import.sqlite");
+  if (!fileName.endsWith(".sqlite")) {
+    return badRequest("Invalid file type. Only .sqlite files are accepted.");
+  }
   const tmpDir = fs.mkdtempSync(path.join(path.dirname(SQLITE_FILE), ".omniroute-import-"));
   const tmpPath = path.join(tmpDir, "import.sqlite");
   const maxBytes = resolveMaxUploadSizeBytes();
@@ -188,7 +191,9 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
   // import before any live data is touched.
   const preImportBackup = await backupDbFileAwaited("pre-import", { mandatory: true });
   if (!preImportBackup) {
-    throw new Error("Mandatory pre-import backup could not be created; database replacement was aborted.");
+    throw new Error(
+      "Mandatory pre-import backup could not be created; database replacement was aborted."
+    );
   }
 
   // Close and reset current DB connection
@@ -245,7 +250,10 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
     neonSnapshot = (await snapshotNeonPersistenceNow()) ? "saved" : "disabled";
   } catch (error) {
     neonSnapshot = "failed";
-    console.error("[NEON] immediate post-import snapshot failed:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "[NEON] immediate post-import snapshot failed:",
+      error instanceof Error ? error.message : String(error)
+    );
   }
 
   return NextResponse.json({
@@ -267,8 +275,8 @@ async function replaceLiveDatabase(tmpPath: string, fileName: string): Promise<R
  * buffers the complete upload. Validates integrity, schema, and required tables before
  * replacing the active database.
  *
- * `dryRun=true` runs the same validation and
- * returns what WOULD be imported, without the pre-import backup or touching the live
+ * `dryRun=true` runs the same validation and returns what WOULD be imported, without the
+ * pre-import backup or touching the live
  * database.
  *
  * 🔒 Operator-only: dashboard session, the machine-bound local CLI credential (so
